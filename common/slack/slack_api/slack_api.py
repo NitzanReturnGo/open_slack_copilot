@@ -90,7 +90,7 @@ def send_ephemeral_blocks(
     user_id: str,
     text: str,
     blocks: list[dict],
-):
+) -> str | None:
     kwargs: dict = {
         "channel": channel_id,
         "user": user_id,
@@ -99,7 +99,9 @@ def send_ephemeral_blocks(
     }
     if thread_ts:
         kwargs["thread_ts"] = thread_ts
-    get_client().chat_postEphemeral(**kwargs)
+    result = get_client().chat_postEphemeral(**kwargs)
+    ts = (result.get("message_ts") or "").strip()
+    return ts or None
 
 
 @log

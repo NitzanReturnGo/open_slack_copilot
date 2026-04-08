@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 from typing import Any
 
 from slack_bolt import App
@@ -42,9 +44,70 @@ _INCLUDE_TEXT_OPTION = {
     "value": "include",
 }
 
+# Ephemeral block_actions payloads often omit ``message.blocks``; we stash draft
+# text at post time and fall back using channel + message ts + user.
+_CONFIRMATION_TEXT_TTL_SEC = 24 * 3600
+_confirmation_text_lock = threading.Lock()
+_confirmation_text_store: dict[str, tuple[float, str]] = {}
+
 
 class _ConfirmationParseError(Exception):
     pass
+
+
+def _confirmation_cache_key(channel_id: str, message_ts: str, user_id: str) -> str:
+    return f"{channel_id}\0{message_ts}\0{user_id}"
+
+
+def _store_confirmation_draft_text(
+    channel_id: str, message_ts: str, user_id: str, text: str,
+) -> None:
+    if not channel_id or not message_ts or not user_id or not text:
+        return
+    now = time.time()
+    key = _confirmation_cache_key(channel_id, message_ts, user_id)
+    with _confirmation_text_lock:
+        _confirmation_text_store[key] = (now + _CONFIRMATION_TEXT_TTL_SEC, text)
+        _prune_stale_confirmation_text_unlocked(now)
+
+
+def _prune_stale_confirmation_text_unlocked(now: float) -> None:
+    dead = [k for k, (exp, _) in _confirmation_text_store.items() if now > exp]
+    for k in dead:
+        del _confirmation_text_store[k]
+
+
+def _lookup_confirmation_draft_text(body: dict) -> str | None:
+    channel_id = (body.get("channel") or {}).get("id") or ""
+    user_id = (body.get("user") or {}).get("id") or ""
+    msg = body.get("message") or {}
+    ts = (msg.get("ts") or "").strip()
+    if not ts:
+        ts = str((body.get("container") or {}).get("message_ts") or "").strip()
+    if not channel_id or not user_id or not ts:
+        return None
+    now = time.time()
+    key = _confirmation_cache_key(channel_id, ts, user_id)
+    with _confirmation_text_lock:
+        entry = _confirmation_text_store.get(key)
+        if not entry:
+            return None
+        exp, text = entry
+        if now > exp:
+            del _confirmation_text_store[key]
+            return None
+        return text
+
+
+def resolve_confirmation_text_from_action(body: dict, text_param_key: str) -> str:
+    blocks = body.get("message", {}).get("blocks") or []
+    try:
+        return parse_text_from_confirmation_blocks(blocks, text_param_key)
+    except _ConfirmationParseError:
+        cached = _lookup_confirmation_draft_text(body)
+        if cached is not None:
+            return cached
+        raise
 
 
 def parse_text_from_confirmation_blocks(blocks: list[dict], text_param_key: str) -> str:
@@ -291,13 +354,15 @@ def queue_tool_confirmation(
         blocks = _build_confirmation_blocks(tool_name, spec, text_content, payload)
     except ValueError as e:
         return f"Error: {e}"
-    copilot_user_notify.notify_confirmation_blocks(
+    message_ts = copilot_user_notify.notify_confirmation_blocks(
         channel_id,
         thread_ts,
         recipient,
         spec.ephemeral_notification_text,
         blocks,
     )
+    if message_ts:
+        _store_confirmation_draft_text(channel_id, message_ts, recipient, text_content)
     return "Tool confirmation requested"
 
 
@@ -314,9 +379,8 @@ def handle_confirm_action(body: dict) -> str:
     spec = get_tool_confirmation_spec(tool_name)
     if not spec:
         return "Unknown tool."
-    blocks = body.get("message", {}).get("blocks") or []
     try:
-        text = parse_text_from_confirmation_blocks(blocks, spec.text_param_key)
+        text = resolve_confirmation_text_from_action(body, spec.text_param_key)
     except _ConfirmationParseError as e:
         return str(e)
     payload = meta.get("payload")
@@ -341,8 +405,7 @@ def handle_revise_open_modal(body: dict, client) -> None:
         spec = get_tool_confirmation_spec(tool_name)
         if not spec:
             raise ValueError("Unknown tool.")
-        blocks = body.get("message", {}).get("blocks") or []
-        tool_text = parse_text_from_confirmation_blocks(blocks, spec.text_param_key)
+        tool_text = resolve_confirmation_text_from_action(body, spec.text_param_key)
         view = _build_tool_revise_modal_view(
             tool_text,
             json.dumps(meta, separators=(",", ":")),

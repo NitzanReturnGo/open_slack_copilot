@@ -42,8 +42,12 @@ def notify_confirmation_blocks(
     user_id: str,
     fallback_text: str,
     blocks: list[dict],
-) -> None:
-    """Block Kit confirmation UI, user-only."""
-    slack_api.send_ephemeral_blocks(
+) -> str | None:
+    """Block Kit confirmation UI, user-only.
+
+    Returns the ephemeral message ``ts`` when Slack includes it (used to recover
+    draft text when interaction payloads omit ``message.blocks``).
+    """
+    return slack_api.send_ephemeral_blocks(
         channel_id, thread_ts, user_id, fallback_text, blocks,
     )

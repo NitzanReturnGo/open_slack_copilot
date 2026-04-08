@@ -7,6 +7,15 @@ from common.slack.slack_bot import tool_confirmation as tc
 from common.tools.copilot_tool import ToolConfirmationSpec, get_tool_confirmation_spec
 
 
+@pytest.fixture(autouse=True)
+def _clear_confirmation_text_cache():
+    with tc._confirmation_text_lock:
+        tc._confirmation_text_store.clear()
+    yield
+    with tc._confirmation_text_lock:
+        tc._confirmation_text_store.clear()
+
+
 def _sample_blocks(text: str, payload: dict | None = None) -> list[dict]:
     spec = get_tool_confirmation_spec("send_slack_pm")
     assert spec is not None
@@ -104,6 +113,22 @@ def test_extra_params_section_in_blocks():
     assert "FOO-1" in (extra.get("text") or {}).get("text", "")
 
 
+def test_resolve_confirmation_text_uses_cache_when_blocks_missing():
+    spec = get_tool_confirmation_spec("send_slack_pm")
+    assert spec is not None
+    tc._store_confirmation_draft_text("C1", "178.999", "U1", "cached body")
+    body = {
+        "user": {"id": "U1"},
+        "channel": {"id": "C1"},
+        "message": {"blocks": []},
+        "container": {"message_ts": "178.999"},
+    }
+    assert (
+        tc.resolve_confirmation_text_from_action(body, spec.text_param_key)
+        == "cached body"
+    )
+
+
 def test_handle_revise_open_modal():
     payload = {
         "target_user_id": "U1",
@@ -130,3 +155,30 @@ def test_handle_revise_open_modal():
     call_kw = client.views_open.call_args[1]
     assert call_kw["trigger_id"] == "T"
     assert call_kw["view"]["type"] == "modal"
+
+
+def test_handle_revise_open_modal_uses_cache_when_blocks_missing():
+    payload = {
+        "target_user_id": "U1",
+        "channel_id": "C1",
+        "thread_ts": "1.0",
+        "prepare_user_id": "U_PREP",
+    }
+    blocks = _sample_blocks("draft from cache", payload)
+    actions = blocks[-1]["elements"]
+    revise_value = next(
+        e["value"] for e in actions if e["action_id"] == tc.ACTION_TOOL_REVISE
+    )
+    tc._store_confirmation_draft_text("C1", "179.001", "U_PREP", "draft from cache")
+    body = {
+        "trigger_id": "T",
+        "user": {"id": "U_PREP"},
+        "channel": {"id": "C1"},
+        "message": {"blocks": []},
+        "container": {"type": "message", "message_ts": "179.001"},
+        "actions": [{"value": revise_value}],
+    }
+    client = MagicMock()
+    with patch.object(tc, "_build_tool_revise_modal_view", return_value={"type": "modal"}):
+        tc.handle_revise_open_modal(body, client)
+    client.views_open.assert_called_once()
