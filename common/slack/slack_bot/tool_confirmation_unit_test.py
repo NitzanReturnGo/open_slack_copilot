@@ -27,6 +27,13 @@ def test_parse_text_single_chunk():
     assert msg == "hello world"
 
 
+def test_body_blocks_use_mrkdwn_for_mentions():
+    blocks = _sample_blocks("Hi <@U0ALHV1GDDK>, try make run")
+    body = next(b for b in blocks if str(b.get("block_id", "")).startswith(tc.BLOCK_BODY_PREFIX))
+    assert (body.get("text") or {}).get("type") == "mrkdwn"
+    assert "<@U0ALHV1GDDK>" in (body.get("text") or {}).get("text", "")
+
+
 def test_parse_text_multichunk():
     long_text = "x" * 4500
     blocks = _sample_blocks(long_text)

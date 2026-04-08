@@ -107,13 +107,15 @@ def send_dm(user_id: str, text: str):
     client = get_client()
     conv = client.conversations_open(users=user_id)
     ch = conv["channel"]["id"]
-    client.chat_postMessage(channel=ch, text=text)
+    client.chat_postMessage(channel=ch, text=text, parse="full")
 
 
 @log
 def post_thread_message(channel_id: str, thread_ts: str, text: str) -> None:
     """Post a message in a channel thread (bot identity)."""
-    get_client().chat_postMessage(channel=channel_id, thread_ts=thread_ts, text=text)
+    get_client().chat_postMessage(
+        channel=channel_id, thread_ts=thread_ts, text=text, parse="full",
+    )
 
 
 def resolve_user(query: str) -> str | None:

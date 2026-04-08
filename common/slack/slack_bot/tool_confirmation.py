@@ -85,7 +85,8 @@ def _message_body_blocks(text: str) -> list[dict]:
         {
             "type": "section",
             "block_id": f"{BLOCK_BODY_PREFIX}{i}",
-            "text": {"type": "plain_text", "text": chunk, "emoji": False},
+            # mrkdwn so <@U…> / <#C…> / links render; plain_text shows mentions literally.
+            "text": {"type": "mrkdwn", "text": chunk},
         }
         for i, chunk in enumerate(chunks)
     ]
