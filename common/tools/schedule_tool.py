@@ -6,7 +6,7 @@ from pathlib import Path
 from common.log import log
 from common.tools.copilot_tool import CopilotTool, register_copilot_tool
 from common.tools.react_context import get_invocation
-from config.config import settings
+from config.config import is_debug_mode, settings
 
 _SCHEDULED_PROMPTS_CONFIG = settings.scheduled_prompts
 _MAX_EXPIRY_DAYS = _SCHEDULED_PROMPTS_CONFIG.get("max_expiry_days", 14)
@@ -120,6 +120,9 @@ def _write_job_to_disk(
         "created_at": now.isoformat().replace("+00:00", "Z"),
         "expires_at": (now + timedelta(days=expires_in)).isoformat().replace("+00:00", "Z"),
     }
+    if is_debug_mode():
+        meta["run_at"] = (now + timedelta(seconds=5)).isoformat().replace("+00:00", "Z")
+        meta["cron"] = ""
     (job_dir / "metadata.json").write_text(json.dumps(meta, indent=2))
 
 

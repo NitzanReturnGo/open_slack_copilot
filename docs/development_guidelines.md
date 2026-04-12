@@ -102,6 +102,29 @@
             return json.dumps({"error": "Could not determine thread_ts"})
         # actual logic buried after 12 lines of checks
     ```
+- **Validate-then-act for raw dicts (JSON / disk metadata)** — parse into a small frozen dataclass (or `NamedTuple`); raise `ValueError` with a short message; one `try`/`except` at the boundary logs and returns; the happy path uses only the typed object (`vm.expires_at`, `vm.run_at`, `vm.cron`).
+  - **Do:**
+    ```python
+    from common.date_utils import in_past
+
+    def register_job_from_disk(job_id: str):
+        meta = json.loads(meta_path.read_text())
+        try:
+            vm = validate_scheduled_prompt_metadata(meta)
+        except ValueError as exc:
+            _logger.error("Job %s: %s", job_id, exc)
+            return
+        if in_past(vm.expires_at):
+            remove_job(job_id, delete_files=True)
+            return
+        if in_past(vm.run_at):
+            return
+        if vm.run_at is not None:
+            trigger = DateTrigger(run_date=vm.run_at, timezone="UTC")
+        else:
+            trigger = CronTrigger.from_crontab(vm.cron, timezone="UTC")
+        ...
+    ```
 - **Extract blocks of 6+ lines** into named functions that explain the *what*, hiding the *how*
   - e.g. `_write_job_to_disk(...)` instead of inline mkdir + write prompt + build meta dict + write json
   - e.g. `_append_assistant_tool_calls(...)` instead of inline dict construction

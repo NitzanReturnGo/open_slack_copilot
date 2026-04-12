@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from apscheduler.triggers.date import DateTrigger
 
 from common.llm.llm_client.llm_client import ToolCallRecord
 from common.slack.copilot_pipeline import ReactLoopResult
@@ -11,7 +12,8 @@ from common.tools.prompt_scheduler import prompt_scheduler as sched
 
 
 @pytest.fixture(autouse=True)
-def _reset_scheduler():
+def _reset_scheduler(monkeypatch):
+    monkeypatch.delenv("DEBUG", raising=False)
     yield
     sched.shutdown_scheduler()
     sched._scheduler = None  # noqa: SLF001
@@ -146,3 +148,57 @@ def test_sequential_executor_config(mock_bs):
     call_kw = mock_bs.call_args[1]
     assert call_kw["job_defaults"]["max_instances"] == 1
     assert "default" in call_kw["executors"]
+
+
+def test_register_job_with_run_at_uses_date_trigger(tmp_path, monkeypatch):
+    monkeypatch.setattr(sched, "scheduled_prompts_root", lambda: tmp_path)
+    future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat().replace("+00:00", "Z")
+    _write_job(tmp_path, "j_once", _future_meta(run_at=future, cron=""), "p")
+    mock_s = MagicMock()
+    mock_s.running = True
+    monkeypatch.setattr(sched, "_ensure_scheduler", lambda: mock_s)
+    sched.register_job_from_disk("j_once")
+    mock_s.add_job.assert_called_once()
+    trigger = mock_s.add_job.call_args[1]["trigger"]
+    assert isinstance(trigger, DateTrigger)
+
+
+@patch("common.tools.prompt_scheduler.prompt_scheduler.remove_job")
+def test_register_stale_run_at_skips_without_delete(mock_remove, tmp_path, monkeypatch):
+    monkeypatch.setattr(sched, "scheduled_prompts_root", lambda: tmp_path)
+    past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat().replace("+00:00", "Z")
+    _write_job(tmp_path, "j_stale", _future_meta(run_at=past, cron=""), "p")
+    mock_s = MagicMock()
+    mock_s.running = True
+    monkeypatch.setattr(sched, "_ensure_scheduler", lambda: mock_s)
+    sched.register_job_from_disk("j_stale")
+    mock_s.add_job.assert_not_called()
+    mock_remove.assert_not_called()
+
+
+@patch("common.tools.prompt_scheduler.prompt_scheduler.remove_job")
+def test_register_expired_job_removes_from_disk(mock_remove, tmp_path, monkeypatch):
+    monkeypatch.setattr(sched, "scheduled_prompts_root", lambda: tmp_path)
+    past_exp = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat().replace("+00:00", "Z")
+    _write_job(
+        tmp_path,
+        "j_exp",
+        _future_meta(cron="0 9 * * *", expires_at=past_exp),
+        "p",
+    )
+    mock_s = MagicMock()
+    mock_s.running = True
+    monkeypatch.setattr(sched, "_ensure_scheduler", lambda: mock_s)
+    sched.register_job_from_disk("j_exp")
+    mock_s.add_job.assert_not_called()
+    mock_remove.assert_called_once_with("j_exp", delete_files=True)
+
+
+@patch("common.tools.prompt_scheduler.prompt_scheduler.run_react_and_confirm")
+@patch("common.tools.prompt_scheduler.prompt_scheduler.remove_job")
+def test_one_shot_run_at_does_not_remove_after_run(mock_remove, mock_react, tmp_path, monkeypatch):
+    monkeypatch.setattr(sched, "scheduled_prompts_root", lambda: tmp_path)
+    future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat().replace("+00:00", "Z")
+    _write_job(tmp_path, "sched_once", _future_meta(run_at=future, cron=""))
+    sched.run_scheduled_prompt("sched_once")
+    mock_remove.assert_not_called()

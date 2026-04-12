@@ -1,15 +1,17 @@
 import json
 import logging
 import shutil
-from datetime import datetime, timezone
 from pathlib import Path
 
 from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
 
+from common.date_utils import in_past
 from common.log import log
 from common.slack.slack_bot.react_runner import run_react_and_confirm
+from .scheduled_prompt_metadata import validate_scheduled_prompt_metadata
 from common.tools.schedule_tool import SCHEDULE_PROMPT_TOOL, scheduled_prompts_root
 
 _logger = logging.getLogger("open_slack_copilot")
@@ -51,12 +53,27 @@ def register_job_from_disk(job_id: str):
     if not meta_path.is_file():
         return
     meta = json.loads(meta_path.read_text())
-    cron = meta.get("cron", "")
     try:
-        trigger = CronTrigger.from_crontab(cron, timezone="UTC")
-    except ValueError:
-        _logger.error("Invalid cron for job %s: %s", job_id, cron)
+        vm = validate_scheduled_prompt_metadata(meta)
+    except ValueError as exc:
+        _logger.error("Job %s: %s", job_id, exc)
         return
+
+    if in_past(vm.expires_at):
+        remove_job(job_id, delete_files=True)
+        return
+
+    if in_past(vm.run_at):
+        return
+
+    if vm.run_at is not None:
+        trigger = DateTrigger(run_date=vm.run_at, timezone="UTC")
+    else:
+        try:
+            trigger = CronTrigger.from_crontab(vm.cron, timezone="UTC")
+        except ValueError:
+            _logger.error("Invalid cron for job %s: %s", job_id, vm.cron)
+            return
     s = _ensure_scheduler()
     s.add_job(
         run_scheduled_prompt,
@@ -149,9 +166,14 @@ def run_scheduled_prompt(job_id: str):
         return
 
     meta = json.loads(meta_path.read_text())
-    now = datetime.now(timezone.utc)
-    expires_at = datetime.fromisoformat(meta["expires_at"].replace("Z", "+00:00"))
-    if now >= expires_at:
+    try:
+        vm = validate_scheduled_prompt_metadata(meta)
+    except ValueError as exc:
+        _logger.error("Job %s: %s", job_id, exc)
+        remove_job(job_id, delete_files=True)
+        return
+
+    if in_past(vm.expires_at):
         remove_job(job_id, delete_files=True)
         return
 

@@ -72,3 +72,22 @@ class TestHandleSchedulePromptCall:
         created = datetime.fromisoformat(meta["created_at"].replace("Z", "+00:00"))
         expires = datetime.fromisoformat(meta["expires_at"].replace("Z", "+00:00"))
         assert (expires - created).days <= 14
+
+    @patch("common.tools.prompt_scheduler.register_job_from_disk")
+    @patch("common.tools.schedule_tool.get_invocation")
+    @patch("common.tools.schedule_tool.is_debug_mode", return_value=True)
+    def test_debug_writes_run_at_and_empty_cron(
+        self, _mock_debug, mock_inv, mock_register, tmp_path, monkeypatch,
+    ):
+        monkeypatch.setattr(schedule_tool, "scheduled_prompts_root", lambda: tmp_path)
+        mock_inv.return_value = {
+            "channel_id": "C1",
+            "thread_ts": "T1",
+            "user_id": "U1",
+        }
+        args = json.dumps({"prompt": "x", "cron": "0 10 * * *"})
+        out = json.loads(schedule_tool.handle_schedule_prompt_call(args))
+        assert out["status"] == "scheduled"
+        meta = json.loads((tmp_path / out["job_id"] / "metadata.json").read_text())
+        assert meta["cron"] == ""
+        assert "run_at" in meta

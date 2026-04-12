@@ -11,6 +11,7 @@
 - **Short code** — take assumptions, skip unnecessary validations
 - **Meaningful names** — name by *what* it does for the caller, not *how*; delete dead code
 - **Validation pattern** — raise private `_ValidationError`, catch once at top of handler
+- **Validate-then-act for messy dicts** — parse raw `dict` into a small frozen dataclass (or `NamedTuple`); validation raises `ValueError` with a short message; one `try`/`except` at the boundary logs and returns; the happy path reads like plain logic on the typed object (e.g. `if now >= vm.expires_at`, `if vm.run_at`)
 - **Extract 6+ line blocks** into named functions explaining the *what*
 - **Prefer external packages** — only if keeps code simpler
 - **Docs** — concise `.md`, 2-7 bold-titled bullets, 2-10 words each

@@ -43,6 +43,13 @@ settings = Dynaconf(
 )
 
 
+def is_debug_mode() -> bool:
+    """True when general debug is enabled via env ``DEBUG`` or config ``debug`` (e.g. ``SLACK_COPILOT_DEBUG`` / ``.local.yaml``)."""
+    if os.environ.get("DEBUG", "").strip().lower() in ("1", "true", "yes"):
+        return True
+    return bool(settings.get("debug", False))
+
+
 def parse_duration_seconds(duration: str) -> float:
     unit = duration[-1]
     value = int(duration[:-1])

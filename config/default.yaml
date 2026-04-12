@@ -1,5 +1,7 @@
 # Secrets are loaded from .env — see Configuration section in README.
 # Env vars: SLACK_BOT_TOKEN, SLACK_APP_TOKEN, OPENAI_API_KEY
+# General debug: also ``DEBUG=true`` (or 1/yes) in the environment. Dynaconf: ``SLACK_COPILOT_DEBUG=true``.
+debug: false
 
 slack_bot:
   token: "@format {env[SLACK_BOT_TOKEN]}"
