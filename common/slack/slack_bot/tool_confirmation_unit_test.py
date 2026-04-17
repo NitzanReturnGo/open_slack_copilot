@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import common.tools.send_slack_pm  # noqa: F401 — registers tool + confirmation spec
+import common.tools.send_thread_reply  # noqa: F401 — registers tool + confirmation spec
 from common.slack.slack_bot import tool_confirmation as tc
 from common.tools.copilot_tool import ToolConfirmationSpec, get_tool_confirmation_spec
 
@@ -26,6 +27,37 @@ def _sample_blocks(text: str, payload: dict | None = None) -> list[dict]:
         "prepare_user_id": "U_PREP",
     }
     return tc._build_confirmation_blocks("send_slack_pm", spec, text, p)
+
+
+def test_confirm_primary_button_uses_spec_label():
+    for tool_name, label, payload in (
+        (
+            "send_thread_reply",
+            "Send thread reply",
+            {"channel_id": "C1", "thread_ts": "1.0", "prepare_user_id": "U1"},
+        ),
+        (
+            "send_slack_pm",
+            "Send DM",
+            {
+                "target_user_id": "U_TARGET",
+                "channel_id": "C1",
+                "thread_ts": "1.0",
+                "prepare_user_id": "U_PREP",
+            },
+        ),
+    ):
+        spec = get_tool_confirmation_spec(tool_name)
+        assert spec is not None
+        assert spec.confirm_button_text == label
+        blocks = tc._build_confirmation_blocks(
+            tool_name, spec, "hello", payload,
+        )
+        actions = blocks[-1]["elements"]
+        primary = next(
+            e for e in actions if e["action_id"] == tc.ACTION_TOOL_CONFIRM
+        )
+        assert primary["text"]["text"] == label
 
 
 def test_parse_text_single_chunk():
@@ -104,6 +136,7 @@ def test_extra_params_section_in_blocks():
         text_param_key="body",
         ephemeral_notification_text="x",
         confirmation_header_markdown="*Hdr*",
+        confirm_button_text="Send",
         extra_param_keys_to_display=("issue_key",),
     )
     blocks = tc._build_confirmation_blocks(

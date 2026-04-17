@@ -20,6 +20,8 @@ class ToolConfirmationSpec:
     text_param_key: str
     ephemeral_notification_text: str
     confirmation_header_markdown: str
+    confirm_button_text: str
+    """Primary action label (Slack plain_text buttons; keep under 75 characters)."""
     requires_confirmation: bool = True
     """If False, the runner may execute immediately (no registered tool uses this yet)."""
     extra_param_keys_to_display: tuple[str, ...] = ()

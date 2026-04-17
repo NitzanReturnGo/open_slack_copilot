@@ -110,6 +110,7 @@ SEND_THREAD_REPLY = CopilotTool(
             "*Thread reply*\n"
             "This will be posted in the thread as the app after you confirm."
         ),
+        confirm_button_text="Send thread reply",
     ),
     execute_after_confirm=_execute_after_confirm,
 )

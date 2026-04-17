@@ -187,7 +187,7 @@ def _build_confirmation_blocks(
         },
         *_extra_params_section(spec, payload),
         *body,
-        _actions_block(tool_name, payload),
+        _actions_block(tool_name, spec, payload),
     ]
 
 
@@ -207,7 +207,9 @@ def _compact_revise_metadata(meta: dict[str, Any]) -> str:
     raise ValueError("Confirmation context is too large for Revise.")
 
 
-def _actions_block(tool_name: str, payload: dict[str, Any]) -> dict:
+def _actions_block(
+    tool_name: str, spec: ToolConfirmationSpec, payload: dict[str, Any],
+) -> dict:
     meta = {
         "v": 1,
         "tool_name": tool_name,
@@ -216,7 +218,7 @@ def _actions_block(tool_name: str, payload: dict[str, Any]) -> dict:
     revise_value = _compact_revise_metadata(meta)
     confirm_raw = json.dumps(meta, separators=(",", ":"))
     if len(confirm_raw) > _BUTTON_VALUE_LIMIT:
-        raise ValueError("Confirmation context is too large for Confirm button.")
+        raise ValueError("Confirmation context is too large for the send button.")
     return {
         "type": "actions",
         "block_id": BLOCK_ACTIONS,
@@ -229,7 +231,7 @@ def _actions_block(tool_name: str, payload: dict[str, Any]) -> dict:
             },
             {
                 "type": "button",
-                "text": {"type": "plain_text", "text": "Confirm"},
+                "text": {"type": "plain_text", "text": spec.confirm_button_text},
                 "style": "primary",
                 "action_id": ACTION_TOOL_CONFIRM,
                 "value": confirm_raw,

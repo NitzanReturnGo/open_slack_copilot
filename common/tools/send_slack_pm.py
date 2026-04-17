@@ -97,6 +97,7 @@ SEND_SLACK_PM = CopilotTool(
             "*Direct message*\n"
             "This will be sent as a private Slack message to the selected member."
         ),
+        confirm_button_text="Send DM",
     ),
     execute_after_confirm=_execute_after_confirm,
 )
