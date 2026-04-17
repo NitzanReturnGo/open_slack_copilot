@@ -2,9 +2,11 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from common.llm.llm_client.llm_client import AgentToolLoopResult, ToolCallRecord
+from common.slack.slack_bot.slack_listener_with_threads import (
+    ACTION_SHORTCUT_INSTRUCTION_TEXT,
+    BLOCK_SHORTCUT_INSTRUCTION,
+)
 
 FIXTURES = Path(__file__).parent.parent / "tests" / "fixtures"
 
@@ -21,6 +23,10 @@ def _make_shortcut_decorator():
 
 
 def _get_registered_shortcut_handler(app: MagicMock, decorator):
+    return decorator.registered
+
+
+def _get_registered_modal_handler(app: MagicMock, decorator):
     return decorator.registered
 
 
@@ -61,7 +67,7 @@ class TestMessageShortcutEndToEnd:
     @patch("common.slack.copilot_pipeline.llm_client")
     @patch("common.slack.slack_bot.react_runner.copilot_user_notify")
     @patch("common.slack.slack_bot.slack_listener_with_threads.slack_api")
-    def test_shortcut_full_chain_sends_reply(
+    def test_shortcut_opens_modal_without_llm(
         self, mock_slack_api, mock_react_notify, mock_llm, mock_pd, mock_rag, mock_fetch,
     ):
         mock_fetch.return_value = THREAD_3
@@ -76,16 +82,75 @@ class TestMessageShortcutEndToEnd:
         from core.slack_bot import _handle_copilot
 
         app = MagicMock()
-        decorator = _make_shortcut_decorator()
-        app.shortcut.return_value = decorator
+        shortcut_dec = _make_shortcut_decorator()
+        view_dec = _make_shortcut_decorator()
+        app.shortcut.return_value = shortcut_dec
+        app.view.return_value = view_dec
         register_copilot_shortcut(app, _handle_copilot)
-        registered_fn = _get_registered_shortcut_handler(app, decorator)
+        registered_fn = _get_registered_shortcut_handler(app, shortcut_dec)
+        client = MagicMock()
 
         shortcut = _shortcut_payload(channel_id="C1", user_id="U1")
 
-        registered_fn(ack=MagicMock(), shortcut=shortcut, client=MagicMock())
+        registered_fn(ack=MagicMock(), shortcut=shortcut, client=client)
 
         mock_fetch.assert_called_once_with("C1", "1516229200.000000")
+        mock_llm.agent_tool_loop.assert_not_called()
+        client.views_open.assert_called_once()
+        mock_react_notify.notify_error.assert_not_called()
+        mock_react_notify.notify_react_feedback.assert_not_called()
+
+    @patch("common.slack.copilot_pipeline.fetch_thread_messages")
+    @patch("common.slack.copilot_pipeline.slack_rag")
+    @patch("common.slack.copilot_pipeline.progressive_disclosure")
+    @patch("common.slack.copilot_pipeline.llm_client")
+    @patch("common.slack.slack_bot.react_runner.copilot_user_notify")
+    @patch("common.slack.slack_bot.slack_listener_with_threads.slack_api")
+    def test_shortcut_modal_submit_runs_llm_chain(
+        self, mock_slack_api, mock_react_notify, mock_llm, mock_pd, mock_rag, mock_fetch,
+    ):
+        mock_fetch.return_value = THREAD_3
+        mock_llm.agent_tool_loop.return_value = AgentToolLoopResult(
+            "",
+            [ToolCallRecord("send_thread_reply", '{"status":"tool_confirmation_requested"}')],
+            [],
+        )
+        _mock_bot_deps(mock_llm, mock_pd, mock_rag)
+
+        from common.slack.slack_bot.slack_listener_with_threads import register_copilot_shortcut
+        from core.slack_bot import _handle_copilot
+
+        app = MagicMock()
+        shortcut_dec = _make_shortcut_decorator()
+        view_dec = _make_shortcut_decorator()
+        app.shortcut.return_value = shortcut_dec
+        app.view.return_value = view_dec
+        register_copilot_shortcut(app, _handle_copilot)
+        shortcut_fn = _get_registered_shortcut_handler(app, shortcut_dec)
+        modal_fn = _get_registered_modal_handler(app, view_dec)
+        client = MagicMock()
+
+        shortcut = _shortcut_payload(channel_id="C1", user_id="U1")
+        shortcut_fn(ack=MagicMock(), shortcut=shortcut, client=client)
+        metadata = client.views_open.call_args[1]["view"]["private_metadata"]
+
+        body = {
+            "view": {
+                "private_metadata": metadata,
+                "state": {
+                    "values": {
+                        BLOCK_SHORTCUT_INSTRUCTION: {
+                            ACTION_SHORTCUT_INSTRUCTION_TEXT: {
+                                "value": "Draft reply on my behalf for this thread",
+                            },
+                        },
+                    },
+                },
+            },
+        }
+        modal_fn(ack=MagicMock(), body=body, _client=MagicMock())
+
+        assert mock_fetch.call_count == 2
         mock_llm.agent_tool_loop.assert_called_once()
         prompt = mock_llm.agent_tool_loop.call_args[0][0]
         for msg in THREAD_3:
@@ -100,7 +165,7 @@ class TestMessageShortcutEndToEnd:
     @patch("common.slack.copilot_pipeline.llm_client")
     @patch("common.slack.slack_bot.react_runner.copilot_user_notify")
     @patch("common.slack.slack_bot.slack_listener_with_threads.slack_api")
-    def test_shortcut_channel_message_uses_message_ts(
+    def test_shortcut_opens_modal_channel_root(
         self, mock_slack_api, mock_react_notify, mock_llm, mock_pd, mock_rag, mock_tail,
     ):
         mock_tail.return_value = THREAD_3
@@ -115,23 +180,33 @@ class TestMessageShortcutEndToEnd:
         from core.slack_bot import _handle_copilot
 
         app = MagicMock()
-        decorator = _make_shortcut_decorator()
-        app.shortcut.return_value = decorator
+        shortcut_dec = _make_shortcut_decorator()
+        view_dec = _make_shortcut_decorator()
+        app.shortcut.return_value = shortcut_dec
+        app.view.return_value = view_dec
         register_copilot_shortcut(app, _handle_copilot)
-        registered_fn = _get_registered_shortcut_handler(app, decorator)
+        registered_fn = _get_registered_shortcut_handler(app, shortcut_dec)
+        client = MagicMock()
 
         shortcut = _shortcut_payload(thread_ts=None)
 
-        registered_fn(ack=MagicMock(), shortcut=shortcut, client=MagicMock())
+        registered_fn(ack=MagicMock(), shortcut=shortcut, client=client)
 
         mock_tail.assert_called_once_with("C1")
+        mock_llm.agent_tool_loop.assert_not_called()
+        client.views_open.assert_called_once()
+
         mock_react_notify.notify_error.assert_not_called()
         mock_react_notify.notify_react_feedback.assert_not_called()
 
     @patch("common.slack.slack_bot.slack_listener_with_threads.slack_api")
     def test_shortcut_callback_registration(self, mock_slack_api):
-        from common.slack.slack_bot.slack_listener_with_threads import register_copilot_shortcut
+        from common.slack.slack_bot.slack_listener_with_threads import (
+            CALLBACK_COPILOT_SHORTCUT_DRAFT_MODAL,
+            register_copilot_shortcut,
+        )
 
         app = MagicMock()
         register_copilot_shortcut(app, MagicMock())
-        app.shortcut.assert_called_with("draft_with_copilot")
+        app.shortcut.assert_called_once_with("draft_with_copilot")
+        app.view.assert_called_once_with(CALLBACK_COPILOT_SHORTCUT_DRAFT_MODAL)

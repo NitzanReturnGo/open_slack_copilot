@@ -18,7 +18,7 @@ For examples of useful skills, see [`docs/examples/`](docs/examples/).
 
 A development manager posts a message to a user group asking everyone to complete a task (e.g. update on-call rotations, review a document, acknowledge a policy change). Instead of manually chasing people, the manager asks CoPilot to handle follow-ups.
 
-**Follow Up** is a **reply** skill: install it under `~/.open_slack_copilot/skills/reply/follow_up/` (copy from [`skill_examples/reply/follow_up/`](skill_examples/reply/follow_up/SKILL.md)). If you still have it under `skills/watcher/follow_up`, move it to `skills/reply/follow_up` so progressive disclosure can load it. Reply skills are chosen on the same flows as any draft — **`@CoPilot`**, the **Draft with CoPilot** shortcut, and **`/copilot`** in a thread.
+**Follow Up** is a **reply** skill: install it under `~/.open_slack_copilot/skills/reply/follow_up/` (copy from [`skill_examples/reply/follow_up/`](skill_examples/reply/follow_up/SKILL.md)). If you still have it under `skills/watcher/follow_up`, move it to `skills/reply/follow_up` so progressive disclosure can load it. Reply skills are chosen on the same flows as any draft — **`@CoPilot`**, the **Draft with CoPilot** message shortcut (opens a dialog for your instruction, then drafts), and **`/copilot`** in a thread.
 
 ### Flow
 
@@ -49,8 +49,9 @@ Go to a message you were mentioned in (or any message you want to draft a reply 
 1. **Hover** over the message in Slack.
 2. Click the **&#x22EE;** (three-dot menu) on the right side of the message.
 3. **Connect to apps** → **Draft with CoPilot**.
-4. Expect an ephemeral message from the bot with the suggested reply.
-5. Click **Revise** to open a modal, edit the instruction (the default includes the current draft), and submit to regenerate the reply. Posting the draft to the channel as you is not implemented yet.
+4. A **dialog** opens. Edit **Instruction for the LLM** if you want; it defaults to **Draft reply on my behalf for this thread**. Click **Submit**.
+5. Expect an ephemeral message from the bot with the suggested reply.
+6. Click **Revise** to open a modal, edit the instruction (the default includes the current draft), and submit to regenerate the reply. Posting the draft to the channel as you is not implemented yet.
 
 ### Mention @CoPilot
 
@@ -80,46 +81,59 @@ Paste this when creating the app from a manifest:
 
 ```json
 {
-  "display_information": {
-    "name": "Open Slack CoPilot",
-    "description": "AI-powered copilot for drafting Slack replies",
-    "background_color": "#1a1a2e"
-  },
-  "features": {
-    "shortcuts": [
-      {
-        "name": "Draft with CoPilot",
-        "type": "message",
-        "callback_id": "draft_with_copilot",
-        "description": "Draft a reply for this message"
-      }
-    ],
-    "bot_user": {
-      "display_name": "CoPilot",
-      "always_online": true
+    "display_information": {
+        "name": "Open Slack CoPilot",
+        "description": "AI-powered copilot for drafting Slack replies",
+        "background_color": "#1a1a2e"
     },
-  },
-  "oauth_config": {
-    "scopes": {
-      "bot": [
-        "app_mentions:read",
-        "chat:write",
-        "channels:history",
-        "groups:history",
-        "usergroups:read"
-      ]
+    "features": {
+        "bot_user": {
+            "display_name": "CoPilot",
+            "always_online": true
+        },
+        "shortcuts": [
+            {
+                "name": "Draft with CoPilot",
+                "type": "message",
+                "callback_id": "draft_with_copilot",
+                "description": "Open a dialog to enter LLM instructions, then draft a reply for this thread"
+            }
+        ],
+        "slash_commands": [
+            {
+                "command": "/copilot",
+                "description": "Draft an AI reply in the current thread",
+                "usage_hint": "[optional instruction]",
+                "should_escape": false
+            }
+        ]
+    },
+    "oauth_config": {
+        "scopes": {
+            "bot": [
+                "app_mentions:read",
+                "chat:write",
+                "commands",
+                "channels:history",
+                "groups:history"
+            ]
+        },
+        "pkce_enabled": false
+    },
+    "settings": {
+        "event_subscriptions": {
+            "bot_events": [
+                "app_mention"
+            ]
+        },
+        "interactivity": {
+            "is_enabled": true
+        },
+        "org_deploy_enabled": false,
+        "socket_mode_enabled": true,
+        "token_rotation_enabled": false,
+        "is_mcp_enabled": false
     }
-  },
-  "settings": {
-    "event_subscriptions": {
-      "bot_events": [
-        "app_mention"
-      ]
-    },
-    "org_deploy_enabled": false,
-    "socket_mode_enabled": true,
-    "token_rotation_enabled": false
-  }
 }
 ```
 

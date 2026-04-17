@@ -1,3 +1,4 @@
+import json
 import re
 
 from slack_bolt import App
@@ -13,6 +14,13 @@ register_tool_confirmation_handlers = (
 )
 
 _MENTION_TOKEN_RE = re.compile(r"<@[^>]+>\s*")
+
+CALLBACK_COPILOT_SHORTCUT_DRAFT_MODAL = "copilot_shortcut_draft_modal"
+BLOCK_SHORTCUT_INSTRUCTION = "copilot_shortcut_instruction"
+ACTION_SHORTCUT_INSTRUCTION_TEXT = "copilot_shortcut_instruction_text"
+MESSAGE_SHORTCUT_DEFAULT_INSTRUCTION = (
+    "Draft reply on my behalf for this thread"
+)
 
 
 def _strip_app_mention_tokens(text: str) -> str:
@@ -47,6 +55,54 @@ def register_copilot_command(app: App, handler):
         )
 
 
+def _shortcut_draft_modal_metadata(
+    channel_id: str,
+    message_ts: str,
+    thread_ts: str | None,
+    user_id: str,
+    channel_name: str | None,
+) -> str:
+    payload = {
+        "v": 1,
+        "channel_id": channel_id,
+        "message_ts": message_ts,
+        "user_id": user_id,
+    }
+    if thread_ts is not None:
+        payload["thread_ts"] = thread_ts
+    if channel_name is not None:
+        payload["channel_name"] = channel_name
+    return json.dumps(payload, separators=(",", ":"))
+
+
+def _build_shortcut_draft_modal_view(private_metadata: str) -> dict:
+    return {
+        "type": "modal",
+        "callback_id": CALLBACK_COPILOT_SHORTCUT_DRAFT_MODAL,
+        "private_metadata": private_metadata,
+        "title": {"type": "plain_text", "text": "Draft with CoPilot", "emoji": True},
+        "submit": {"type": "plain_text", "text": "Submit", "emoji": True},
+        "close": {"type": "plain_text", "text": "Cancel", "emoji": True},
+        "blocks": [
+            {
+                "type": "input",
+                "block_id": BLOCK_SHORTCUT_INSTRUCTION,
+                "element": {
+                    "type": "plain_text_input",
+                    "action_id": ACTION_SHORTCUT_INSTRUCTION_TEXT,
+                    "multiline": True,
+                    "initial_value": MESSAGE_SHORTCUT_DEFAULT_INSTRUCTION,
+                },
+                "label": {
+                    "type": "plain_text",
+                    "text": "Instruction for the LLM",
+                    "emoji": True,
+                },
+            },
+        ],
+    }
+
+
 def register_copilot_shortcut(app: App, handler):
 
     @app.shortcut("draft_with_copilot")
@@ -60,19 +116,105 @@ def register_copilot_shortcut(app: App, handler):
         anchor_fallback = message.get("thread_ts") or message["ts"]
 
         try:
-            anchor_ts, thread_messages = resolve_copilot_slack_context(channel_id, message)
+            resolve_copilot_slack_context(channel_id, message)
         except ThreadFetchError:
             _send_channel_error(channel_id, anchor_fallback, user_id, response_url)
             return
 
-        context_kind = "channel_tail" if not message.get("thread_ts") else "thread"
+        meta = _shortcut_draft_modal_metadata(
+            channel_id,
+            message["ts"],
+            message.get("thread_ts"),
+            user_id,
+            shortcut["channel"].get("name"),
+        )
+        view = _build_shortcut_draft_modal_view(meta)
+        try:
+            client.views_open(trigger_id=shortcut["trigger_id"], view=view)
+        except Exception:
+            if response_url:
+                try:
+                    slack_api.respond_ephemeral(
+                        response_url,
+                        "Could not open dialog. Try again.",
+                    )
+                except Exception:
+                    pass
+
+    @app.view(CALLBACK_COPILOT_SHORTCUT_DRAFT_MODAL)
+    @log
+    def handle_shortcut_draft_modal_submit(ack, body, _client):
+        view = body.get("view") or {}
+        meta_raw = view.get("private_metadata") or ""
+        try:
+            meta = json.loads(meta_raw)
+        except json.JSONDecodeError:
+            ack(
+                response_action="errors",
+                errors={
+                    BLOCK_SHORTCUT_INSTRUCTION: "Invalid dialog state.",
+                },
+            )
+            return
+        if meta.get("v") != 1:
+            ack(
+                response_action="errors",
+                errors={
+                    BLOCK_SHORTCUT_INSTRUCTION: "Invalid dialog state.",
+                },
+            )
+            return
+        channel_id = str(meta.get("channel_id") or "")
+        message_ts = str(meta.get("message_ts") or "")
+        user_id = str(meta.get("user_id") or "")
+        if not channel_id or not message_ts or not user_id:
+            ack(
+                response_action="errors",
+                errors={
+                    BLOCK_SHORTCUT_INSTRUCTION: "Missing Slack context.",
+                },
+            )
+            return
+        message = {"ts": message_ts}
+        thread_ts_meta = meta.get("thread_ts")
+        if thread_ts_meta:
+            message["thread_ts"] = thread_ts_meta
+        values = view.get("state", {}).get("values", {})
+        block = values.get(BLOCK_SHORTCUT_INSTRUCTION) or {}
+        el = block.get(ACTION_SHORTCUT_INSTRUCTION_TEXT) or {}
+        instruction = (el.get("value") or "").strip()
+        if not instruction:
+            instruction = MESSAGE_SHORTCUT_DEFAULT_INSTRUCTION
+        try:
+            anchor_ts, thread_messages = resolve_copilot_slack_context(
+                channel_id, message,
+            )
+        except ThreadFetchError:
+            ack(
+                response_action="errors",
+                errors={
+                    BLOCK_SHORTCUT_INSTRUCTION: (
+                        "Could not load thread. Try again."
+                    ),
+                },
+            )
+            return
+        channel_name = meta.get("channel_name")
+        if not isinstance(channel_name, str):
+            channel_name = None
+        elif not channel_name.strip():
+            channel_name = None
+        context_kind = (
+            "channel_tail" if not message.get("thread_ts") else "thread"
+        )
+        ack()
         handler(
             channel_id=channel_id,
             thread_ts=anchor_ts,
             user_id=user_id,
-            user_text="",
+            user_text=instruction,
             thread_messages=thread_messages,
-            channel_name=shortcut["channel"].get("name"),
+            channel_name=channel_name,
             context_kind=context_kind,
             copilot_trigger="message_shortcut",
             copilot_action="send_thread_reply",
