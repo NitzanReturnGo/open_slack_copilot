@@ -64,49 +64,13 @@ def _load_draft(ref: str) -> str | None:
         return None
 
 
-def _resolve_confirmation_tool_text(
-    meta: dict[str, Any], body: dict, spec: ToolConfirmationSpec,
-) -> str:
+def _resolve_confirmation_tool_text(meta: dict[str, Any]) -> str:
     ref = meta.get("draft_ref")
     if ref:
         text = _load_draft(str(ref))
         if text is not None:
             return text
-    return resolve_confirmation_text_from_action(body, spec.text_param_key)
-
-
-def resolve_confirmation_text_from_action(body: dict, text_param_key: str) -> str:
-    blocks = body.get("message", {}).get("blocks") or []
-    try:
-        return parse_text_from_confirmation_blocks(blocks, text_param_key)
-    except _ConfirmationParseError:
-        cached = _lookup_confirmation_draft_text(body)
-        if cached is not None:
-            return cached
-        raise
-
-
-def parse_text_from_confirmation_blocks(blocks: list[dict], text_param_key: str) -> str:
-    del text_param_key  # reserved for multi-param layouts; body is always chunked text
-    body_blocks = [
-        b for b in blocks if str(b.get("block_id") or "").startswith(BLOCK_BODY_PREFIX)
-    ]
-    if not body_blocks:
-        raise _ConfirmationParseError("Could not read text from this confirmation.")
-
-    def sort_key(b: dict) -> int:
-        bid = str(b.get("block_id") or "")
-        try:
-            return int(bid.split("_")[-1])
-        except (ValueError, IndexError):
-            return 0
-
-    body_blocks.sort(key=sort_key)
-    parts = [str((b.get("text") or {}).get("text") or "") for b in body_blocks]
-    combined = "".join(parts)
-    if not combined:
-        raise _ConfirmationParseError("Could not read text from this confirmation.")
-    return combined
+    raise ValueError("Could not read text from this confirmation.")
 
 
 def _message_body_blocks(text: str) -> list[dict]:
@@ -336,15 +300,13 @@ def queue_tool_confirmation(
         blocks = _build_confirmation_blocks(tool_name, spec, text_content, payload)
     except ValueError as e:
         return f"Error: {e}"
-    message_ts = copilot_user_notify.notify_confirmation_blocks(
+    copilot_user_notify.notify_confirmation_blocks(
         channel_id,
         thread_ts,
         recipient,
         spec.ephemeral_notification_text,
         blocks,
     )
-    if message_ts:
-        _store_confirmation_draft_text(channel_id, message_ts, recipient, text_content)
     return "Tool confirmation requested"
 
 
@@ -362,8 +324,8 @@ def handle_confirm_action(body: dict) -> str:
     if not spec:
         return "Unknown tool."
     try:
-        text = _resolve_confirmation_tool_text(meta, body, spec)
-    except _ConfirmationParseError as e:
+        text = _resolve_confirmation_tool_text(meta)
+    except ValueError as e:
         return str(e)
     payload = meta.get("payload")
     if not isinstance(payload, dict):
@@ -387,14 +349,12 @@ def handle_revise_open_modal(body: dict, client) -> None:
         spec = get_tool_confirmation_spec(tool_name)
         if not spec:
             raise ValueError("Unknown tool.")
-        tool_text = _resolve_confirmation_tool_text(meta, body, spec)
+        tool_text = _resolve_confirmation_tool_text(meta)
         view = _build_tool_revise_modal_view(
             tool_text,
             json.dumps(meta, separators=(",", ":")),
         )
         client.views_open(trigger_id=body["trigger_id"], view=view)
-    except _ConfirmationParseError as e:
-        _reply_ephemeral_from_action(body, str(e))
     except ValueError as e:
         _reply_ephemeral_from_action(body, str(e))
     except Exception:
