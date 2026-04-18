@@ -121,8 +121,14 @@ class TestRegisterCopilotShortcut:
         client.views_open.assert_called_once()
         view = client.views_open.call_args[1]["view"]
         assert view["callback_id"] == CALLBACK_COPILOT_SHORTCUT_DRAFT_MODAL
-        el = view["blocks"][0]["element"]
+        assert view["blocks"][0]["type"] == "context"
+        instr = next(
+            b for b in view["blocks"] if b.get("block_id") == BLOCK_SHORTCUT_INSTRUCTION
+        )
+        el = instr["element"]
         assert el["initial_value"] == MESSAGE_SHORTCUT_DEFAULT_INSTRUCTION
+        assert "placeholder" in el
+        assert instr.get("hint")
         meta = json.loads(view["private_metadata"])
         assert meta == {
             "v": 1,

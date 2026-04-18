@@ -214,3 +214,4 @@ __marimo__/
 
 # Copilot structured agent log (NDJSON)
 /agent_logs/
+.cursor/worktrees.json

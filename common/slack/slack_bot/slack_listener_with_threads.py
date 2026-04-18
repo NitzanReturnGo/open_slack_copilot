@@ -85,13 +85,38 @@ def _build_shortcut_draft_modal_view(private_metadata: str) -> dict:
         "close": {"type": "plain_text", "text": "Cancel", "emoji": True},
         "blocks": [
             {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": (
+                            "Describe what you want in plain language. *Examples:* keep it to two sentences; "
+                            "bullet the action items; friendly but firm; summarize the thread then reply; "
+                            "politely decline; match the thread's tone."
+                        ),
+                    },
+                ],
+            },
+            {
                 "type": "input",
                 "block_id": BLOCK_SHORTCUT_INSTRUCTION,
+                "hint": {
+                    "type": "plain_text",
+                    "text": (
+                        "Uses this thread's messages (or recent channel context on a root post). "
+                        "After submit you can still use Revise on the draft."
+                    ),
+                    "emoji": True,
+                },
                 "element": {
                     "type": "plain_text_input",
                     "action_id": ACTION_SHORTCUT_INSTRUCTION_TEXT,
                     "multiline": True,
                     "initial_value": MESSAGE_SHORTCUT_DEFAULT_INSTRUCTION,
+                    "placeholder": {
+                        "type": "plain_text",
+                        "text": "e.g. Shorter, bullets, polite no, add a deadline\u2026",
+                    },
                 },
                 "label": {
                     "type": "plain_text",

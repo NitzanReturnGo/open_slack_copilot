@@ -7,6 +7,7 @@
 - TO TEST - bug: "confirm" as name of button is not good. If you click twice on confirm. It will send the message twice. Need to name it "Send thread reply" or "Send DM" (each tool should define at registration) and if possible, one time click, disable on send one.
 - oauth
 - TO TEST conflicting terms in codebase DM and PM
+- urgent unread messages
 
 Future
 - CI/CD
