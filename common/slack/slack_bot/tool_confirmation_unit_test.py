@@ -1,3 +1,4 @@
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -6,15 +7,6 @@ import common.tools.send_slack_pm  # noqa: F401 — registers tool + confirmatio
 import common.tools.send_thread_reply  # noqa: F401 — registers tool + confirmation spec
 from common.slack.slack_bot import tool_confirmation as tc
 from common.tools.copilot_tool import ToolConfirmationSpec, get_tool_confirmation_spec
-
-
-@pytest.fixture(autouse=True)
-def _clear_confirmation_text_cache():
-    with tc._confirmation_text_lock:
-        tc._confirmation_text_store.clear()
-    yield
-    with tc._confirmation_text_lock:
-        tc._confirmation_text_store.clear()
 
 
 def _sample_blocks(text: str, payload: dict | None = None) -> list[dict]:
@@ -60,28 +52,11 @@ def test_confirm_primary_button_uses_spec_label():
         assert primary["text"]["text"] == label
 
 
-def test_parse_text_single_chunk():
-    blocks = _sample_blocks("hello world")
-    spec = get_tool_confirmation_spec("send_slack_pm")
-    assert spec is not None
-    msg = tc.parse_text_from_confirmation_blocks(blocks, spec.text_param_key)
-    assert msg == "hello world"
-
-
 def test_body_blocks_use_mrkdwn_for_mentions():
     blocks = _sample_blocks("Hi <@U0ALHV1GDDK>, try make run")
     body = next(b for b in blocks if str(b.get("block_id", "")).startswith(tc.BLOCK_BODY_PREFIX))
     assert (body.get("text") or {}).get("type") == "mrkdwn"
     assert "<@U0ALHV1GDDK>" in (body.get("text") or {}).get("text", "")
-
-
-def test_parse_text_multichunk():
-    long_text = "x" * 4500
-    blocks = _sample_blocks(long_text)
-    spec = get_tool_confirmation_spec("send_slack_pm")
-    assert spec is not None
-    msg = tc.parse_text_from_confirmation_blocks(blocks, spec.text_param_key)
-    assert msg == long_text
 
 
 def test_build_blocks_rejects_overflow():
@@ -92,6 +67,32 @@ def test_build_blocks_rejects_overflow():
         tc._build_confirmation_blocks(
             "send_slack_pm", spec, too_long, {"target_user_id": "U1"}
         )
+
+
+def test_handle_confirm_action_uses_draft_ref_when_blocks_missing():
+    payload = {
+        "target_user_id": "U_RECIPIENT",
+        "channel_id": "C1",
+        "thread_ts": "1.0",
+        "prepare_user_id": "U_PREP",
+    }
+    blocks = _sample_blocks("draft body", payload)
+    actions = blocks[-1]["elements"]
+    confirm_value = next(
+        e["value"] for e in actions if e["action_id"] == tc.ACTION_TOOL_CONFIRM
+    )
+    meta = json.loads(confirm_value)
+    assert "draft_ref" in meta
+    body = {
+        "user": {"id": "U_CLICKER"},
+        "channel": {"id": "C1"},
+        "actions": [{"value": confirm_value}],
+        "message": {"blocks": []},
+    }
+    with patch("common.tools.send_slack_pm.slack_api") as api:
+        result = tc.handle_confirm_action(body)
+        assert result == "Sent."
+        api.send_dm.assert_called_once_with("U_RECIPIENT", "draft body")
 
 
 def test_handle_confirm_action_parses_and_sends():
@@ -146,22 +147,6 @@ def test_extra_params_section_in_blocks():
     assert "FOO-1" in (extra.get("text") or {}).get("text", "")
 
 
-def test_resolve_confirmation_text_uses_cache_when_blocks_missing():
-    spec = get_tool_confirmation_spec("send_slack_pm")
-    assert spec is not None
-    tc._store_confirmation_draft_text("C1", "178.999", "U1", "cached body")
-    body = {
-        "user": {"id": "U1"},
-        "channel": {"id": "C1"},
-        "message": {"blocks": []},
-        "container": {"message_ts": "178.999"},
-    }
-    assert (
-        tc.resolve_confirmation_text_from_action(body, spec.text_param_key)
-        == "cached body"
-    )
-
-
 def test_handle_revise_open_modal():
     payload = {
         "target_user_id": "U1",
@@ -188,30 +173,3 @@ def test_handle_revise_open_modal():
     call_kw = client.views_open.call_args[1]
     assert call_kw["trigger_id"] == "T"
     assert call_kw["view"]["type"] == "modal"
-
-
-def test_handle_revise_open_modal_uses_cache_when_blocks_missing():
-    payload = {
-        "target_user_id": "U1",
-        "channel_id": "C1",
-        "thread_ts": "1.0",
-        "prepare_user_id": "U_PREP",
-    }
-    blocks = _sample_blocks("draft from cache", payload)
-    actions = blocks[-1]["elements"]
-    revise_value = next(
-        e["value"] for e in actions if e["action_id"] == tc.ACTION_TOOL_REVISE
-    )
-    tc._store_confirmation_draft_text("C1", "179.001", "U_PREP", "draft from cache")
-    body = {
-        "trigger_id": "T",
-        "user": {"id": "U_PREP"},
-        "channel": {"id": "C1"},
-        "message": {"blocks": []},
-        "container": {"type": "message", "message_ts": "179.001"},
-        "actions": [{"value": revise_value}],
-    }
-    client = MagicMock()
-    with patch.object(tc, "_build_tool_revise_modal_view", return_value={"type": "modal"}):
-        tc.handle_revise_open_modal(body, client)
-    client.views_open.assert_called_once()
