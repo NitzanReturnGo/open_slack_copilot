@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
-import threading
-import time
+import uuid
 from typing import Any
+
+from common.cache import DEFAULT_CACHE_DIR
 
 from slack_bolt import App
 
@@ -24,6 +25,8 @@ _PLAIN_CHUNK = _SLACK_BOT_CONFIG.get("block_kit_plain_text_chunk", 3000)
 _MAX_BODY_BLOCKS = _SLACK_BOT_CONFIG.get("block_kit_max_body_blocks", 48)
 _BUTTON_VALUE_LIMIT = _SLACK_BOT_CONFIG.get("button_value_limit", 2000)
 _PRIVATE_METADATA_LIMIT = _SLACK_BOT_CONFIG.get("private_metadata_limit", 3000)
+
+_TOOL_CONFIRM_DRAFT_DIR = DEFAULT_CACHE_DIR / "tool_confirm_drafts"
 
 BLOCK_HEADER = "tool_confirm_header"
 BLOCK_BODY_PREFIX = "tool_confirm_body_"
@@ -44,59 +47,32 @@ _INCLUDE_TEXT_OPTION = {
     "value": "include",
 }
 
-# Ephemeral block_actions payloads often omit ``message.blocks``; we stash draft
-# text at post time and fall back using channel + message ts + user.
-_CONFIRMATION_TEXT_TTL_SEC = 24 * 3600
-_confirmation_text_lock = threading.Lock()
-_confirmation_text_store: dict[str, tuple[float, str]] = {}
+
+def _save_draft(text: str) -> str:
+    """Write draft text to disk, return the reference key."""
+    ref = uuid.uuid4().hex
+    _TOOL_CONFIRM_DRAFT_DIR.mkdir(parents=True, exist_ok=True)
+    (_TOOL_CONFIRM_DRAFT_DIR / f"{ref}.txt").write_text(text, encoding="utf-8")
+    return ref
 
 
-class _ConfirmationParseError(Exception):
-    pass
-
-
-def _confirmation_cache_key(channel_id: str, message_ts: str, user_id: str) -> str:
-    return f"{channel_id}\0{message_ts}\0{user_id}"
-
-
-def _store_confirmation_draft_text(
-    channel_id: str, message_ts: str, user_id: str, text: str,
-) -> None:
-    if not channel_id or not message_ts or not user_id or not text:
-        return
-    now = time.time()
-    key = _confirmation_cache_key(channel_id, message_ts, user_id)
-    with _confirmation_text_lock:
-        _confirmation_text_store[key] = (now + _CONFIRMATION_TEXT_TTL_SEC, text)
-        _prune_stale_confirmation_text_unlocked(now)
-
-
-def _prune_stale_confirmation_text_unlocked(now: float) -> None:
-    dead = [k for k, (exp, _) in _confirmation_text_store.items() if now > exp]
-    for k in dead:
-        del _confirmation_text_store[k]
-
-
-def _lookup_confirmation_draft_text(body: dict) -> str | None:
-    channel_id = (body.get("channel") or {}).get("id") or ""
-    user_id = (body.get("user") or {}).get("id") or ""
-    msg = body.get("message") or {}
-    ts = (msg.get("ts") or "").strip()
-    if not ts:
-        ts = str((body.get("container") or {}).get("message_ts") or "").strip()
-    if not channel_id or not user_id or not ts:
+def _load_draft(ref: str) -> str | None:
+    """Read draft text from disk by reference key."""
+    try:
+        return (_TOOL_CONFIRM_DRAFT_DIR / f"{ref}.txt").read_text(encoding="utf-8")
+    except OSError:
         return None
-    now = time.time()
-    key = _confirmation_cache_key(channel_id, ts, user_id)
-    with _confirmation_text_lock:
-        entry = _confirmation_text_store.get(key)
-        if not entry:
-            return None
-        exp, text = entry
-        if now > exp:
-            del _confirmation_text_store[key]
-            return None
-        return text
+
+
+def _resolve_confirmation_tool_text(
+    meta: dict[str, Any], body: dict, spec: ToolConfirmationSpec,
+) -> str:
+    ref = meta.get("draft_ref")
+    if ref:
+        text = _load_draft(str(ref))
+        if text is not None:
+            return text
+    return resolve_confirmation_text_from_action(body, spec.text_param_key)
 
 
 def resolve_confirmation_text_from_action(body: dict, text_param_key: str) -> str:
@@ -187,7 +163,7 @@ def _build_confirmation_blocks(
         },
         *_extra_params_section(spec, payload),
         *body,
-        _actions_block(tool_name, spec, payload),
+        _actions_block(tool_name, spec, payload, text_content),
     ]
 
 
@@ -208,12 +184,16 @@ def _compact_revise_metadata(meta: dict[str, Any]) -> str:
 
 
 def _actions_block(
-    tool_name: str, spec: ToolConfirmationSpec, payload: dict[str, Any],
+    tool_name: str,
+    spec: ToolConfirmationSpec,
+    payload: dict[str, Any],
+    draft_text: str,
 ) -> dict:
     meta = {
         "v": 1,
         "tool_name": tool_name,
         "payload": payload,
+        "draft_ref": _save_draft(draft_text),
     }
     revise_value = _compact_revise_metadata(meta)
     confirm_raw = json.dumps(meta, separators=(",", ":"))
@@ -382,7 +362,7 @@ def handle_confirm_action(body: dict) -> str:
     if not spec:
         return "Unknown tool."
     try:
-        text = resolve_confirmation_text_from_action(body, spec.text_param_key)
+        text = _resolve_confirmation_tool_text(meta, body, spec)
     except _ConfirmationParseError as e:
         return str(e)
     payload = meta.get("payload")
@@ -407,7 +387,7 @@ def handle_revise_open_modal(body: dict, client) -> None:
         spec = get_tool_confirmation_spec(tool_name)
         if not spec:
             raise ValueError("Unknown tool.")
-        tool_text = resolve_confirmation_text_from_action(body, spec.text_param_key)
+        tool_text = _resolve_confirmation_tool_text(meta, body, spec)
         view = _build_tool_revise_modal_view(
             tool_text,
             json.dumps(meta, separators=(",", ":")),
