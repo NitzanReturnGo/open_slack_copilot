@@ -275,4 +275,4 @@ class TestHandleCopilot:
 
         _handle_copilot("C123", "T123", "U001", "help")
         mock_notify.notify_react_feedback.assert_called_once()
-        assert "send_thread_reply" in mock_notify.notify_react_feedback.call_args[0][3]
+        assert "Failed to process request" in mock_notify.notify_react_feedback.call_args[0][3]

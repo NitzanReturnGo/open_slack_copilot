@@ -16,11 +16,15 @@ from common.slack.copilot_pipeline import (
     run_react_loop,
 )
 from common.slack import copilot_user_notify
-from common.tools.copilot_tool import TOOL_JSON_STATUS_CONFIRMATION_REQUESTED
+from common.tools.copilot_tool import (
+    TOOL_JSON_STATUS_CONFIRMATION_REQUESTED,
+    get_tool_confirmation_spec,
+)
 
 _logger = logging.getLogger(__name__)
 
 CHANNEL_INVITE_EPHEMERAL = "Add me to this channel first. /invite @CoPilot"
+_EMPTY_RUN_MSG = "Failed to process request."
 _NO_SUBMIT_MSG = (
     "The assistant did not call send_thread_reply with the message text. "
     "Try again or rephrase your instruction."
@@ -57,12 +61,11 @@ def _resolve_thread_messages(
     return fetch_thread_messages(channel_id, anchor)
 
 
-def _trace_shows_send_thread_reply_confirmation_requested(
-    trace: list[ToolCallRecord],
-) -> bool:
-    """True if send_thread_reply returned status tool_confirmation_requested (Slack UI was shown)."""
+def _trace_shows_confirm_ui_pending(trace: list[ToolCallRecord]) -> bool:
+    """True if a confirm-mode tool returned tool_confirmation_requested (Slack UI was shown)."""
     for rec in reversed(trace):
-        if (rec.name or "") != "send_thread_reply":
+        name = rec.name or ""
+        if get_tool_confirmation_spec(name) is None:
             continue
         prev = (rec.result_preview or "").strip()
         try:
@@ -72,6 +75,81 @@ def _trace_shows_send_thread_reply_confirmation_requested(
         if isinstance(obj, dict) and obj.get("status") == TOOL_JSON_STATUS_CONFIRMATION_REQUESTED:
             return True
     return False
+
+
+def _notify_tool_receipt_line(tool_name: str, result_preview: str) -> str | None:
+    """One bullet for a notify-mode (no confirmation spec) tool result."""
+    name = (tool_name or "").strip() or "tool"
+    raw = (result_preview or "").strip()
+    if not raw:
+        return f"• `{name}`: (empty result)"
+    try:
+        obj = json.loads(raw)
+    except json.JSONDecodeError:
+        return f"• `{name}`: (invalid JSON)"
+    if not isinstance(obj, dict):
+        return f"• `{name}`: {raw[:200]}{'…' if len(raw) > 200 else ''}"
+    err = obj.get("error")
+    if err is not None:
+        return f"• `{name}`: {err}"
+    msg = obj.get("message")
+    if msg is not None and str(msg).strip():
+        return f"• `{name}`: {msg}"
+    status = obj.get("status")
+    if status is not None and str(status).strip():
+        extra = obj.get("job_id")
+        if extra:
+            return f"• `{name}`: {status} (`{extra}`)"
+        return f"• `{name}`: {status}"
+    uids = obj.get("user_ids")
+    if isinstance(uids, list) and name == "list_usergroup_members":
+        ug = obj.get("usergroup_id") or "?"
+        return f"• `{name}`: {len(uids)} member(s) in `{ug}`"
+    return f"• `{name}`: ok"
+
+
+def _build_notify_mode_receipt(trace: list[ToolCallRecord]) -> str:
+    lines: list[str] = []
+    for rec in trace:
+        name = rec.name or ""
+        if get_tool_confirmation_spec(name) is not None:
+            continue
+        line = _notify_tool_receipt_line(name, rec.result_preview)
+        if line:
+            lines.append(line)
+    return "\n".join(lines)
+
+
+def _has_substantive_assistant_text(loop_out: ReactLoopResult) -> bool:
+    return bool((loop_out.text or "").strip())
+
+
+def _compose_post_loop_message(loop_out: ReactLoopResult) -> str | None:
+    """Build user-visible ephemeral body, or None if nothing to send."""
+    receipt = _build_notify_mode_receipt(loop_out.tool_trace).strip()
+    errors_block = (
+        _format_tool_errors_ephemeral(loop_out.tool_errors)
+        if loop_out.tool_errors
+        else ""
+    )
+    assistant = (loop_out.text or "").strip()
+    assistant_block = ""
+    if assistant:
+        excerpt = assistant[:800] + ("…" if len(assistant) > 800 else "")
+        assistant_block = f"*Assistant text (not submitted):*\n{excerpt}"
+
+    sections: list[str] = []
+    if receipt:
+        sections.append(f"*What ran*\n{receipt}")
+    if errors_block:
+        sections.append(errors_block)
+    if assistant_block:
+        sections.append(assistant_block)
+
+    if sections:
+        return "\n\n".join(sections)
+
+    return None
 
 
 def _format_tool_errors_ephemeral(tool_errors: list[str]) -> str:
@@ -159,31 +237,35 @@ def _post_loop_ephemeral(
     recipient_user_id: str,
     loop_out: ReactLoopResult,
 ) -> None:
-    # send_thread_reply already opened Revise/Confirm; only surface other tool failures.
-    thread_reply_confirmation_requested = _trace_shows_send_thread_reply_confirmation_requested(
-        loop_out.tool_trace,
-    )
-    if thread_reply_confirmation_requested:
-        if loop_out.tool_errors:
+    confirm_pending = _trace_shows_confirm_ui_pending(loop_out.tool_trace)
+    body = _compose_post_loop_message(loop_out)
+
+    if confirm_pending:
+        if body:
             copilot_user_notify.notify_react_feedback(
                 channel_id,
                 thread_ts,
                 recipient_user_id,
-                _format_tool_errors_ephemeral(loop_out.tool_errors),
+                body,
             )
         return
 
-    # No successful send_thread_reply confirmation path: explain + optional errors + model text excerpt.
-    ephemeral_sections: list[str] = [_NO_SUBMIT_MSG]
-    if loop_out.tool_errors:
-        ephemeral_sections.append(_format_tool_errors_ephemeral(loop_out.tool_errors))
-    assistant = (loop_out.text or "").strip()
-    if assistant:
-        excerpt = assistant[:800] + ("…" if len(assistant) > 800 else "")
-        ephemeral_sections.append(f"*Assistant text (not submitted):*\n{excerpt}")
+    if body:
+        copilot_user_notify.notify_react_feedback(
+            channel_id,
+            thread_ts,
+            recipient_user_id,
+            body,
+        )
+        return
+
+    if not loop_out.tool_trace and not _has_substantive_assistant_text(loop_out):
+        msg = _EMPTY_RUN_MSG
+    else:
+        msg = _NO_SUBMIT_MSG
     copilot_user_notify.notify_react_feedback(
         channel_id,
         thread_ts,
         recipient_user_id,
-        "\n\n".join(ephemeral_sections),
+        msg,
     )
