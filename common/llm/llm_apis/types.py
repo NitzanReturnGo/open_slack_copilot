@@ -1,4 +1,20 @@
 from dataclasses import dataclass, field
+from typing import Any, Callable
+
+
+@dataclass(frozen=True)
+class AgentEvent:
+    """Structured notification from the agent loop (tools, turns, etc.) for observers.
+
+    Callers pass ``AgentEventNotifier``; implementations own persistence or live UX
+    without coupling the LLM loop to log paths.
+    """
+
+    kind: str
+    payload: dict[str, Any] = field(default_factory=dict)
+
+
+AgentEventNotifier = Callable[[AgentEvent], None]
 
 
 @dataclass(frozen=True)
