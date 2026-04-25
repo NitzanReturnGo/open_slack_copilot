@@ -3,14 +3,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import common.tools.send_slack_pm  # noqa: F401 — registers tool + confirmation spec
+import common.tools.send_dm_as_app  # noqa: F401 — registers tool + confirmation spec
 import common.tools.send_thread_reply_on_behalf_of_requester  # noqa: F401 — registers tool + confirmation spec
 from common.slack.slack_bot import tool_confirmation as tc
 from common.tools.copilot_tool import ToolConfirmationSpec, get_tool_confirmation_spec
 
 
 def _sample_blocks(text: str, payload: dict | None = None) -> list[dict]:
-    spec = get_tool_confirmation_spec("send_slack_pm")
+    spec = get_tool_confirmation_spec("send_dm_as_app")
     assert spec is not None
     p = payload or {
         "target_user_id": "U_TARGET",
@@ -18,7 +18,7 @@ def _sample_blocks(text: str, payload: dict | None = None) -> list[dict]:
         "thread_ts": "1.0",
         "prepare_user_id": "U_PREP",
     }
-    return tc._build_confirmation_blocks("send_slack_pm", spec, text, p)
+    return tc._build_confirmation_blocks("send_dm_as_app", spec, text, p)
 
 
 def test_confirm_primary_button_uses_spec_label():
@@ -29,7 +29,7 @@ def test_confirm_primary_button_uses_spec_label():
             {"channel_id": "C1", "thread_ts": "1.0", "prepare_user_id": "U1"},
         ),
         (
-            "send_slack_pm",
+            "send_dm_as_app",
             "Send DM",
             {
                 "target_user_id": "U_TARGET",
@@ -60,12 +60,12 @@ def test_body_blocks_use_mrkdwn_for_mentions():
 
 
 def test_build_blocks_rejects_overflow():
-    spec = get_tool_confirmation_spec("send_slack_pm")
+    spec = get_tool_confirmation_spec("send_dm_as_app")
     assert spec is not None
     too_long = "m" * (tc._MAX_BODY_BLOCKS * tc._PLAIN_CHUNK + 1)
     with pytest.raises(ValueError, match="too long"):
         tc._build_confirmation_blocks(
-            "send_slack_pm", spec, too_long, {"target_user_id": "U1"}
+            "send_dm_as_app", spec, too_long, {"target_user_id": "U1"}
         )
 
 
@@ -89,7 +89,7 @@ def test_handle_confirm_action_uses_draft_ref_when_blocks_missing():
         "actions": [{"value": confirm_value}],
         "message": {"blocks": []},
     }
-    with patch("common.tools.send_slack_pm.slack_api") as api:
+    with patch("common.tools.send_dm_as_app.slack_api") as api:
         result = tc.handle_confirm_action(body)
         assert result == "Sent."
         api.send_dm.assert_called_once_with("U_RECIPIENT", "draft body")
@@ -113,7 +113,7 @@ def test_handle_confirm_action_parses_and_sends():
         "actions": [{"value": confirm_value}],
         "message": {"blocks": blocks, "thread_ts": "1.0"},
     }
-    with patch("common.tools.send_slack_pm.slack_api") as api:
+    with patch("common.tools.send_dm_as_app.slack_api") as api:
         result = tc.handle_confirm_action(body)
         assert result == "Sent."
         api.send_dm.assert_called_once_with("U_RECIPIENT", "body text")
@@ -122,7 +122,7 @@ def test_handle_confirm_action_parses_and_sends():
 def test_queue_tool_confirmation_requires_requester():
     with patch("common.slack.slack_bot.tool_confirmation.slack_api"):
         out = tc.queue_tool_confirmation(
-            tool_name="send_slack_pm",
+            tool_name="send_dm_as_app",
             text_content="hi",
             payload={"target_user_id": "U1"},
             channel_id="C",

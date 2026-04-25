@@ -14,7 +14,7 @@
 | Thread reply UX | [`send_thread_reply_on_behalf_of_requester.py`](../../common/tools/send_thread_reply_on_behalf_of_requester.py) + [`tool_confirmation.py`](../../common/slack/slack_bot/tool_confirmation.py) | LLM calls `send_thread_reply_on_behalf_of_requester` → ephemeral to requester with **Revise** + **Confirm**; confirm runs `execute_after_confirm` → `slack_api.post_thread_message_on_behalf_of_requester` (or `post_thread_message_as_app` for bot-only flows). |
 | After ReAct | [`react_runner.py`](../../common/slack/slack_bot/react_runner.py) | If trace shows `send_thread_reply_on_behalf_of_requester` with `status: tool_confirmation_requested`, no extra draft ephemeral; otherwise ephemeral explains the model must call the tool. |
 | Scheduled prompts | [`prompt_scheduler.py`](../../common/tools/prompt_scheduler/prompt_scheduler.py) | `run_react_and_confirm(..., excluded_tools=[SCHEDULE_PROMPT_TOOL])` to the user in job metadata. |
-| Other risky tools | [`tool_confirmation.py`](../../common/slack/slack_bot/tool_confirmation.py) | e.g. `send_slack_pm` — same Revise + Confirm pattern; payload includes `context_kind` for revise parity. |
+| Other risky tools | [`tool_confirmation.py`](../../common/slack/slack_bot/tool_confirmation.py) | e.g. `send_dm_as_app` — same Revise + Confirm pattern; payload includes `context_kind` for revise parity. |
 
 ---
 

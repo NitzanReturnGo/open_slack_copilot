@@ -9,7 +9,7 @@ from common.slack.copilot_pipeline import (
 from common.tools.list_usergroup_members import LIST_USERGROUP_MEMBERS_TOOL
 from common.tools.schedule_tool import SCHEDULE_PROMPT_TOOL
 from common.tools.send_ephemeral_message import SEND_EPHEMERAL_MESSAGE_TOOL
-from common.tools.send_slack_pm import SEND_SLACK_PM_TOOL
+from common.tools.send_dm_as_app import SEND_DM_AS_APP_TOOL
 from common.tools.send_thread_reply_on_behalf_of_requester import (
     SEND_THREAD_REPLY_ON_BEHALF_OF_REQUESTER_TOOL,
 )
@@ -70,7 +70,7 @@ class TestRunReactLoopExcludedTools:
         )
         tools_passed = mock_llm.agent_tool_loop.call_args[0][2]
         assert SCHEDULE_PROMPT_TOOL not in tools_passed
-        assert SEND_SLACK_PM_TOOL in tools_passed
+        assert SEND_DM_AS_APP_TOOL in tools_passed
         assert SEND_THREAD_REPLY_ON_BEHALF_OF_REQUESTER_TOOL in tools_passed
         assert SEND_EPHEMERAL_MESSAGE_TOOL in tools_passed
         assert LIST_USERGROUP_MEMBERS_TOOL in tools_passed
@@ -95,7 +95,7 @@ class TestRunReactLoopToolErrorsInOutput:
             "Draft body.",
             [],
             tool_errors=[
-                "send_slack_pm: Error: requester_user_id is required to show confirmation.",
+                "send_dm_as_app: Error: requester_user_id is required to show confirmation.",
             ],
         )
         mock_fetch.return_value = [{"text": "x"}]
@@ -105,4 +105,4 @@ class TestRunReactLoopToolErrorsInOutput:
         assert "Draft body." in out.text
         assert "*Tool errors*" in out.text
         assert "requester_user_id" in out.text
-        assert "send_slack_pm:" in out.text
+        assert "send_dm_as_app:" in out.text

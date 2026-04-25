@@ -8,7 +8,7 @@
 - **APScheduler runtime** — scheduled skills run via APScheduler (in-process), supporting cron expressions (hourly, daily, etc.)
 - **Stored on disk** — each scheduled skill stored at `~/.open_slack_copilot/scheduled_skills/<id>/SKILL.md` + `metadata.json`
 - **LLM judges completion** — when a scheduled prompt fires, the LLM reads the thread and decides whether the required action was done (emoji, reply, confirmation)
-- **DM non-completers** — if action not done, use M6 (send_slack_pm tool with confirmation) to DM the relevant people
+- **DM non-completers** — if action not done, use M6 (send_dm_as_app tool with confirmation) to DM the relevant people
 - **Exponential backoff** — reminders start at 1 day interval, double each time, expire after 3 weeks
 - **Sequential execution** — scheduled skills run one at a time, not in parallel
 
@@ -20,7 +20,7 @@
 - `common/tools/skills_scheduler/schedule_tool.py` — LiteLLM tool definition; the LLM calls this to register a new scheduled skill
 - `common/slack/slack_api/slack_api.py` — exposes the slack_bolt client directly, plus helper functions as needed
 - `common/llm/llm_client/llm_client.py` — evaluates thread state, decides if action was done
-- `common/tools/send_slack_pm.py` — reused from M6 for sending DM reminders (with confirmation)
+- `common/tools/send_dm_as_app.py` — reused from M6 for sending DM reminders (with confirmation)
 - `config/config.py` — path to scheduled_skills directory
 
 ### Scheduled Skill Storage
@@ -97,7 +97,7 @@ skills_scheduler.py :: run_scheduled_skill("followup_abc123")
        │
        ├── if action NOT done:
        │     ├── LLM composes reminder DM for each non-completer
-       │     ├── for each: send_slack_pm tool (with confirmation from M6)
+       │     ├── for each: send_dm_as_app tool (with confirmation from M6)
        │     ├── update metadata: last_run=now, backoff_days *= 2
        │     └── done
        │

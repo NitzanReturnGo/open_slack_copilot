@@ -19,7 +19,7 @@ from common.tools.copilot_tool import dispatch_copilot_tool as dispatch_register
 from common.tools.list_usergroup_members import LIST_USERGROUP_MEMBERS_TOOL
 from common.tools.schedule_tool import SCHEDULE_PROMPT_TOOL
 from common.tools.send_ephemeral_message import SEND_EPHEMERAL_MESSAGE_TOOL
-from common.tools.send_slack_pm import SEND_SLACK_PM_TOOL
+from common.tools.send_dm_as_app import SEND_DM_AS_APP_TOOL
 from common.tools.send_thread_reply_on_behalf_of_requester import (
     SEND_THREAD_REPLY_ON_BEHALF_OF_REQUESTER_TOOL,
 )
@@ -32,7 +32,7 @@ EXAMPLES_PATH = _SLACK_DIR / "example_threads.json"
 
 _INTERACTIVE_TOOLS = [
     SCHEDULE_PROMPT_TOOL,
-    SEND_SLACK_PM_TOOL,
+    SEND_DM_AS_APP_TOOL,
     SEND_THREAD_REPLY_ON_BEHALF_OF_REQUESTER_TOOL,
     SEND_EPHEMERAL_MESSAGE_TOOL,
     LIST_USERGROUP_MEMBERS_TOOL,
@@ -154,7 +154,7 @@ def run_react_loop(
                 "If a reply in the thread is expected, call send_thread_reply_on_behalf_of_requester with the full "
                 "message text; the requester will get confirmation in Slack before it is posted. "
                 "If no public thread message is needed (e.g. only scheduling or other tools), do not use that tool. "
-                "Use schedule_prompt, send_slack_pm, list_usergroup_members, or other tools when the selected skills require them."
+                "Use schedule_prompt, send_dm_as_app, list_usergroup_members, or other tools when the selected skills require them."
             ),
             effective_tools,
             effective_dispatch,
