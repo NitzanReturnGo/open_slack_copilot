@@ -191,6 +191,30 @@ make run
 
 ---
 
+## Connect User OAuth (optional)
+
+Only needed if you want CoPilot to **send messages on your behalf** (e.g. post a thread reply or DM from your Slack account via the `send_thread_reply_on_behalf_of_requester` tool). If you stick to the default `send_dm_as_app`, skip this section.
+
+1. In your Slack app → **Basic Information**, copy **Client ID** and **Client Secret** into `.env`:
+
+   ```
+   SLACK_CLIENT_ID=...
+   SLACK_CLIENT_SECRET=...
+   ```
+
+2. In your Slack app → **OAuth & Permissions**:
+   - Add redirect URL: `http://127.0.0.1:8765/slack/oauth/callback`
+   - Under **User Token Scopes**, add `chat:write`.
+3. Start the localhost OAuth server (in a separate terminal):
+
+   ```bash
+   make oauth-server
+   ```
+
+4. Open `http://127.0.0.1:8765/slack/oauth/start` in your browser and complete the Slack consent. The user token is persisted at `~/.open_slack_copilot/slack_user_oauth/<user_id>.json` and picked up automatically by the bot.
+
+---
+
 ## Define Skills
 
 Skills are freeform markdown instructions that guide the bot's reply behavior. They live in:

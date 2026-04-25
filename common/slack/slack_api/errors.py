@@ -9,9 +9,9 @@ class OAuthNotConnectedError(Exception):
         if self.user_id:
             super().__init__(
                 "No OAuth is connected for this user. "
-                f"Connect Slack user OAuth to post in the thread on behalf of <@{self.user_id}>."
+                f"Connect Slack user OAuth so <@{self.user_id}> can send thread replies and DMs in their name."
             )
         else:
             super().__init__(
-                "No Slack user OAuth is connected. Connect OAuth to post on behalf of the requester."
+                "No Slack user OAuth is connected. Connect OAuth so the requester can send thread replies and DMs in their name."
             )

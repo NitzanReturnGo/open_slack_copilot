@@ -16,6 +16,8 @@ for _key in (
     "SLACK_APP_TOKEN",
     "OPENAI_API_KEY",
     "ANTHROPIC_API_KEY",
+    "SLACK_CLIENT_ID",
+    "SLACK_CLIENT_SECRET",
 ):
     os.environ.setdefault(_key, "")
 

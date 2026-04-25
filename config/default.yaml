@@ -11,6 +11,16 @@ data_layer:
 slack_bot:
   token: "@format {env[SLACK_BOT_TOKEN]}"
   app_token: "@format {env[SLACK_APP_TOKEN]}"
+  # Used only by ``python -m core.slack_user_oauth_server`` (localhost user OAuth).
+  user_oauth:
+    client_id: "@format {env[SLACK_CLIENT_ID]}"
+    client_secret: "@format {env[SLACK_CLIENT_SECRET]}"
+    redirect_uri: "http://127.0.0.1:8765/slack/oauth/callback"
+    bind_host: "127.0.0.1"
+    bind_port: 8765
+    # Slack user_scope (comma-separated in authorize URL). Minimal for thread + DM as the user.
+    user_scopes:
+      - "chat:write"
   # For @mentions and the message shortcut on a channel-root post (no thread), use this many recent channel messages as context.
   copilot_channel_context_limit: 30
   # Prior agent log lines injected into compose_system_prompt (per thread).

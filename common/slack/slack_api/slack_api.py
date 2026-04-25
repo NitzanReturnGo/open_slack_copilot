@@ -116,6 +116,22 @@ def send_dm(user_id: str, text: str):
 
 
 @log
+def send_dm_on_behalf_of_requester(
+    requester_user_id: str,
+    target_user_id: str,
+    text: str,
+) -> None:
+    """Open a DM with target_user_id and post text using the requester's user OAuth token (xoxp-)."""
+    token = oauth_token_store.get_user_token(requester_user_id)
+    if not token:
+        raise OAuthNotConnectedError(requester_user_id)
+    client = WebClient(token=token, ssl=_ssl_context())
+    conv = client.conversations_open(users=target_user_id)
+    ch = conv["channel"]["id"]
+    client.chat_postMessage(channel=ch, text=text, parse="full")
+
+
+@log
 def post_thread_message_as_app(channel_id: str, thread_ts: str, text: str) -> None:
     """Post a message in a channel thread (bot / app identity)."""
     get_client().chat_postMessage(

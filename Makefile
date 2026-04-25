@@ -1,4 +1,4 @@
-.PHONY: install run test docker-build docker-run \
+.PHONY: install run oauth-server test docker-build docker-run \
 	rag-inspect-all-channels rag-inspect-channel rag-inspect-all \
 	rag-inspect-collection rag-list-collections rag-help \
 	rag-clean rag-clean-dry-run \
@@ -26,6 +26,10 @@ install: .venv/.installed
 
 run:
 	.venv/bin/python -m core.slack_bot
+
+# Localhost Slack user OAuth (stores xoxp- via oauth_token_store); set SLACK_CLIENT_ID + SLACK_CLIENT_SECRET.
+oauth-server: install
+	PYTHONPATH=. .venv/bin/python -m core.slack_user_oauth_server
 
 test: install
 	.venv/bin/pytest
