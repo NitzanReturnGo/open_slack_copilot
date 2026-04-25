@@ -44,7 +44,7 @@ class TestSlashCommandEndToEnd:
             "",
             [
                 ToolCallRecord(
-                    "send_thread_reply",
+                    "send_thread_reply_on_behalf_of_requester",
                     '{"status":"tool_confirmation_requested","detail":"ok"}',
                 ),
             ],
@@ -82,7 +82,7 @@ class TestSlashCommandEndToEnd:
         mock_fetch.return_value = THREAD_1
         mock_llm.agent_tool_loop.return_value = AgentToolLoopResult(
             "",
-            [ToolCallRecord("send_thread_reply", '{"status":"tool_confirmation_requested"}')],
+            [ToolCallRecord("send_thread_reply_on_behalf_of_requester", '{"status":"tool_confirmation_requested"}')],
             [],
         )
         _mock_bot_deps(mock_llm, mock_pd, mock_rag)
@@ -119,7 +119,7 @@ class TestSlashCommandEndToEnd:
             channel_name=None,
             context_kind="thread",
             copilot_trigger="slash_command",
-            copilot_action="send_thread_reply",
+            copilot_action="send_thread_reply_on_behalf_of_requester",
         )
 
     def test_callback_registration(self):

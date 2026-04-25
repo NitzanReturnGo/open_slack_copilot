@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import common.tools.send_slack_pm  # noqa: F401 — registers tool + confirmation spec
-import common.tools.send_thread_reply  # noqa: F401 — registers tool + confirmation spec
+import common.tools.send_thread_reply_on_behalf_of_requester  # noqa: F401 — registers tool + confirmation spec
 from common.slack.slack_bot import tool_confirmation as tc
 from common.tools.copilot_tool import ToolConfirmationSpec, get_tool_confirmation_spec
 
@@ -24,7 +24,7 @@ def _sample_blocks(text: str, payload: dict | None = None) -> list[dict]:
 def test_confirm_primary_button_uses_spec_label():
     for tool_name, label, payload in (
         (
-            "send_thread_reply",
+            "send_thread_reply_on_behalf_of_requester",
             "Send thread reply",
             {"channel_id": "C1", "thread_ts": "1.0", "prepare_user_id": "U1"},
         ),

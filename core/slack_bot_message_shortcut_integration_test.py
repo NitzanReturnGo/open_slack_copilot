@@ -73,7 +73,7 @@ class TestMessageShortcutEndToEnd:
         mock_fetch.return_value = THREAD_3
         mock_llm.agent_tool_loop.return_value = AgentToolLoopResult(
             "",
-            [ToolCallRecord("send_thread_reply", '{"status":"tool_confirmation_requested"}')],
+            [ToolCallRecord("send_thread_reply_on_behalf_of_requester", '{"status":"tool_confirmation_requested"}')],
             [],
         )
         _mock_bot_deps(mock_llm, mock_pd, mock_rag)
@@ -112,7 +112,7 @@ class TestMessageShortcutEndToEnd:
         mock_fetch.return_value = THREAD_3
         mock_llm.agent_tool_loop.return_value = AgentToolLoopResult(
             "",
-            [ToolCallRecord("send_thread_reply", '{"status":"tool_confirmation_requested"}')],
+            [ToolCallRecord("send_thread_reply_on_behalf_of_requester", '{"status":"tool_confirmation_requested"}')],
             [],
         )
         _mock_bot_deps(mock_llm, mock_pd, mock_rag)
@@ -171,7 +171,7 @@ class TestMessageShortcutEndToEnd:
         mock_tail.return_value = THREAD_3
         mock_llm.agent_tool_loop.return_value = AgentToolLoopResult(
             "",
-            [ToolCallRecord("send_thread_reply", '{"status":"tool_confirmation_requested"}')],
+            [ToolCallRecord("send_thread_reply_on_behalf_of_requester", '{"status":"tool_confirmation_requested"}')],
             [],
         )
         _mock_bot_deps(mock_llm, mock_pd, mock_rag)

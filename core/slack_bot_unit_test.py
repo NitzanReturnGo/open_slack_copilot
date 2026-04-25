@@ -212,7 +212,7 @@ class TestHandleCopilot:
             "",
             [
                 ToolCallRecord(
-                    "send_thread_reply",
+                    "send_thread_reply_on_behalf_of_requester",
                     '{"status":"tool_confirmation_requested","detail":"ok"}',
                 ),
             ],
@@ -261,7 +261,7 @@ class TestHandleCopilot:
     @patch("common.slack.copilot_pipeline.progressive_disclosure")
     @patch("common.slack.slack_bot.react_runner.copilot_user_notify")
     @patch("common.slack.copilot_pipeline.llm_client")
-    def test_missing_send_thread_reply_sends_ephemeral(
+    def test_missing_send_thread_reply_on_behalf_of_requester_sends_ephemeral(
         self, mock_llm, mock_notify, mock_pd, mock_rag, mock_fetch,
     ):
         mock_pd.select_skills.return_value = []

@@ -3,6 +3,11 @@
 # General debug: also ``DEBUG=true`` (or 1/yes) in the environment. Dynaconf: ``SLACK_COPILOT_DEBUG=true``.
 debug: false
 
+# User data: key-value collections; default file layout ``~/.open_slack_copilot/<collection>/<key>.json``
+data_layer:
+  root: "~/.open_slack_copilot"
+  backend: "file"
+
 slack_bot:
   token: "@format {env[SLACK_BOT_TOKEN]}"
   app_token: "@format {env[SLACK_APP_TOKEN]}"

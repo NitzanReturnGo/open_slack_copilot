@@ -25,7 +25,7 @@ def notify_error(
 def notify_react_feedback(
     channel_id: str, thread_ts: str | None, user_id: str, text: str,
 ) -> None:
-    """Outcome of the ReAct loop visible only to the invoker (tool errors, no-submit hints)."""
+    """Outcome of the ReAct loop visible only to the requester (tool errors, no-submit hints)."""
     slack_api.send_ephemeral(channel_id, thread_ts, user_id, text)
 
 

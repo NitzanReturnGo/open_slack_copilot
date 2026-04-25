@@ -69,7 +69,7 @@ class TestRegisterCopilotCommand:
             channel_id="C1", thread_ts="T1", user_id="U1",
             user_text="help me", channel_name=None, context_kind="thread",
             copilot_trigger="slash_command",
-            copilot_action="send_thread_reply",
+            copilot_action="send_thread_reply_on_behalf_of_requester",
         )
 
     @patch("common.slack.slack_bot.slack_listener_with_threads.copilot_user_notify")
@@ -248,7 +248,7 @@ class TestRegisterCopilotShortcut:
             channel_name="team-chat",
             context_kind="thread",
             copilot_trigger="message_shortcut",
-            copilot_action="send_thread_reply",
+            copilot_action="send_thread_reply_on_behalf_of_requester",
         )
 
     @patch("common.slack.slack_bot.slack_listener_with_threads.resolve_copilot_slack_context")
@@ -340,7 +340,7 @@ class TestRegisterCopilotAppMention:
             channel_name=None,
             context_kind="channel_tail",
             copilot_trigger="app_mention",
-            copilot_action="send_thread_reply",
+            copilot_action="send_thread_reply_on_behalf_of_requester",
         )
 
     @patch("common.slack.slack_bot.slack_listener_with_threads.resolve_copilot_slack_context")
@@ -376,7 +376,7 @@ class TestRegisterCopilotAppMention:
             channel_name=None,
             context_kind="thread",
             copilot_trigger="app_mention",
-            copilot_action="send_thread_reply",
+            copilot_action="send_thread_reply_on_behalf_of_requester",
         )
 
     @patch("common.slack.slack_bot.slack_listener_with_threads.slack_api")

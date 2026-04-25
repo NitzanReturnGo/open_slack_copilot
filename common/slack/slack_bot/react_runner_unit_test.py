@@ -63,7 +63,7 @@ def test_post_loop_confirm_pending_still_sends_notify_receipt():
                 "schedule_prompt",
                 '{"status":"scheduled","job_id":"j1","message":"ok"}',
             ),
-            ToolCallRecord("send_thread_reply", '{"status":"tool_confirmation_requested"}'),
+            ToolCallRecord("send_thread_reply_on_behalf_of_requester", '{"status":"tool_confirmation_requested"}'),
         ],
         [],
     )
@@ -101,7 +101,7 @@ def test_post_loop_truly_empty_failed_to_process():
 def test_post_loop_tools_but_no_notify_shows_no_submit_hint():
     loop_out = ReactLoopResult(
         "",
-        [ToolCallRecord("send_thread_reply", '{"error":"bad args"}')],
+        [ToolCallRecord("send_thread_reply_on_behalf_of_requester", '{"error":"bad args"}')],
         [],
     )
     mock_notify = MagicMock()

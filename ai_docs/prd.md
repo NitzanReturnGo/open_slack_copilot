@@ -9,6 +9,8 @@ A Slack copilot that drafts replies, manages scheduled prompts, and sends DMs on
 ## Implemented Features
 
 - **Draft replies** — via message shortcut, @mention, or `/copilot`; uses channel RAG + cross-channel RAG + **reply** skills (progressive disclosure on each of those entry points)
+- **Thread reply (on behalf of the requester)** — LLM tool `send_thread_reply_on_behalf_of_requester` with confirm/revise; posts in the thread on behalf of the requester when a user OAuth token exists in the `slack_user_oauth` data collection (`~/.open_slack_copilot/.../`), otherwise confirm surfaces an OAuth error
+- **Data layer** — pluggable `common/data_layer/` file-backed key-value store (default under `~/.open_slack_copilot/`); prepared for a DB backend later
 - **Follow-ups (action items)** — implemented as a **reply** skill ([`skill_examples/reply/follow_up/SKILL.md`](../skill_examples/reply/follow_up/SKILL.md)); install under `~/.open_slack_copilot/skills/reply/follow_up/`; uses `schedule_prompt`, `list_usergroup_members`, `send_slack_pm`
 - **Reply confirmation + Revise** — refine a reply with free-text instructions via modal
 - **Send DM** — LLM tool `send_slack_pm`; requesting user approves/rejects via ephemeral (tool confirmation)
@@ -20,7 +22,7 @@ A Slack copilot that drafts replies, manages scheduled prompts, and sends DMs on
 - Entry points: `/copilot` slash command, message shortcut, `@CoPilot` mention → all run `run_react_loop` → reply confirmation ephemeral with Revise button
 - Channel RAG auto-builds if missing; cross-channel RAG built on startup from config
 - Scheduled runs deliver replies as confirmation ephemerals to the user who created the schedule
-- Tool confirmation flow: ephemeral Block Kit Confirm/Revise for risky tools (DMs, etc.)
+- Tool confirmation flow: ephemeral Block Kit Confirm/Revise for DMs, thread reply, and similar tools; thread content is posted on behalf of the requester when OAuth is connected
 
 ## Not Yet Implemented
 

@@ -1,4 +1,4 @@
-"""Run the copilot ReAct loop; thread reply is submitted via send_thread_reply tool confirmation."""
+"""Run the copilot ReAct loop; thread reply is submitted via send_thread_reply_on_behalf_of_requester tool confirmation."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ _logger = logging.getLogger(__name__)
 CHANNEL_INVITE_EPHEMERAL = "Add me to this channel first. /invite @CoPilot"
 _EMPTY_RUN_MSG = "Failed to process request."
 _NO_SUBMIT_MSG = (
-    "The assistant did not call send_thread_reply with the message text. "
+    "The assistant did not call send_thread_reply_on_behalf_of_requester with the message text. "
     "Try again or rephrase your instruction."
 )
 

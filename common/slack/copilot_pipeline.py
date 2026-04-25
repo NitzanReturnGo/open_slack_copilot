@@ -20,7 +20,9 @@ from common.tools.list_usergroup_members import LIST_USERGROUP_MEMBERS_TOOL
 from common.tools.schedule_tool import SCHEDULE_PROMPT_TOOL
 from common.tools.send_ephemeral_message import SEND_EPHEMERAL_MESSAGE_TOOL
 from common.tools.send_slack_pm import SEND_SLACK_PM_TOOL
-from common.tools.send_thread_reply import SEND_THREAD_REPLY_TOOL
+from common.tools.send_thread_reply_on_behalf_of_requester import (
+    SEND_THREAD_REPLY_ON_BEHALF_OF_REQUESTER_TOOL,
+)
 from config.config import settings, parse_duration_seconds
 
 DEFAULT_INSTRUCTION = "Draft a reply to this thread."
@@ -31,7 +33,7 @@ EXAMPLES_PATH = _SLACK_DIR / "example_threads.json"
 _INTERACTIVE_TOOLS = [
     SCHEDULE_PROMPT_TOOL,
     SEND_SLACK_PM_TOOL,
-    SEND_THREAD_REPLY_TOOL,
+    SEND_THREAD_REPLY_ON_BEHALF_OF_REQUESTER_TOOL,
     SEND_EPHEMERAL_MESSAGE_TOOL,
     LIST_USERGROUP_MEMBERS_TOOL,
 ]
@@ -149,7 +151,7 @@ def run_react_loop(
         loop_result = llm_client.agent_tool_loop(
             prompt,
             (
-                "Finish by calling send_thread_reply exactly once with the full message text "
+                "Finish by calling send_thread_reply_on_behalf_of_requester exactly once with the full message text "
                 "to post in the thread after the user confirms. "
                 "Use schedule_prompt, send_slack_pm, list_usergroup_members, or other tools "
                 "first when the selected skills require them."

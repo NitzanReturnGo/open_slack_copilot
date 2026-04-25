@@ -6,6 +6,9 @@ import urllib.request
 import certifi
 from slack_sdk import WebClient
 
+from common.slack.slack_api.errors import OAuthNotConnectedError
+from common.slack.slack_api import oauth_token_store
+
 from common.cache import cache
 from common.log import log
 from config.config import settings
@@ -113,9 +116,26 @@ def send_dm(user_id: str, text: str):
 
 
 @log
-def post_thread_message(channel_id: str, thread_ts: str, text: str) -> None:
-    """Post a message in a channel thread (bot identity)."""
+def post_thread_message_as_app(channel_id: str, thread_ts: str, text: str) -> None:
+    """Post a message in a channel thread (bot / app identity)."""
     get_client().chat_postMessage(
+        channel=channel_id, thread_ts=thread_ts, text=text, parse="full",
+    )
+
+
+@log
+def post_thread_message_on_behalf_of_requester(
+    channel_id: str,
+    thread_ts: str,
+    text: str,
+    requester_user_id: str,
+) -> None:
+    """Post in the thread on behalf of the requester, using that user's OAuth token (xoxp-), not the bot."""
+    token = oauth_token_store.get_user_token(requester_user_id)
+    if not token:
+        raise OAuthNotConnectedError(requester_user_id)
+    client = WebClient(token=token, ssl=_ssl_context())
+    client.chat_postMessage(
         channel=channel_id, thread_ts=thread_ts, text=text, parse="full",
     )
 

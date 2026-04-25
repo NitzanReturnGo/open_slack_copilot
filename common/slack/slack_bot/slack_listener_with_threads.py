@@ -51,7 +51,7 @@ def register_copilot_command(app: App, handler):
             channel_name=command.get("channel_name"),
             context_kind="thread",
             copilot_trigger="slash_command",
-            copilot_action="send_thread_reply",
+            copilot_action="send_thread_reply_on_behalf_of_requester",
         )
 
 
@@ -242,7 +242,7 @@ def register_copilot_shortcut(app: App, handler):
             channel_name=channel_name,
             context_kind=context_kind,
             copilot_trigger="message_shortcut",
-            copilot_action="send_thread_reply",
+            copilot_action="send_thread_reply_on_behalf_of_requester",
         )
 
 
@@ -284,7 +284,7 @@ def register_copilot_app_mention(app: App, handler, bot_user_id: str | None = No
             channel_name=None,
             context_kind=context_kind,
             copilot_trigger="app_mention",
-            copilot_action="send_thread_reply",
+            copilot_action="send_thread_reply_on_behalf_of_requester",
         )
 
 
