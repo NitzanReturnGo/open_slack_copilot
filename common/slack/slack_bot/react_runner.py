@@ -7,7 +7,7 @@ import logging
 from collections.abc import Callable
 
 from common.log import log
-from common.llm.llm_client.llm_client import ToolCallRecord
+from common.llm.llm_client.llm_client import AgentEvent, ToolCallRecord
 from common.slack.copilot_pipeline import (
     ReactLoopResult,
     ThreadFetchError,
@@ -156,6 +156,24 @@ def _format_tool_errors_ephemeral(tool_errors: list[str]) -> str:
     return f"*Tool errors*\n{lines}"
 
 
+def _slack_live_indications_notifier(
+    channel_id: str,
+    thread_ts: str,
+    recipient_user_id: str,
+) -> Callable[[AgentEvent], None]:
+    """Agent-event hook; body is a stub until live Slack progress is implemented."""
+
+    def on_agent_event(ev: AgentEvent) -> None:
+        # TODO(live-indications): Call Slack here (e.g. ``slack_api`` or
+        # ``copilot_user_notify.notify_progress`` / ``chat.postEphemeral``) using
+        # ``channel_id``, ``thread_ts``, and ``recipient_user_id`` so the user sees
+        # per-step feedback while tools run. Branch on ``ev.kind`` (``tool_result``,
+        # ``assistant_tool_calls``, etc.); keep messages short to avoid rate limits.
+        del ev, channel_id, thread_ts, recipient_user_id
+
+    return on_agent_event
+
+
 @log
 def run_react_and_confirm(
     channel_id: str,
@@ -195,6 +213,9 @@ def run_react_and_confirm(
             copilot_trigger=copilot_trigger,
             copilot_action=copilot_action,
             context_kind=context_kind,
+            on_agent_event=_slack_live_indications_notifier(
+                channel_id, thread_ts, recipient_user_id,
+            ),
         )
     except ThreadFetchError:
         copilot_user_notify.notify_error(
