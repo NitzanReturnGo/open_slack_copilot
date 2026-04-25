@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from common.llm.llm_client import llm_client
+from common.llm.llm_apis.types import AgentEventNotifier
 from common.slack import agent_log
 from common.progressive_disclosure import progressive_disclosure
 from common.slack import copilot_user_notify
@@ -115,6 +116,7 @@ def run_react_loop(
     copilot_action: str | None = None,
     *,
     context_kind: str = "thread",
+    on_agent_event: AgentEventNotifier | None = None,
 ) -> ReactLoopResult:
     if thread_messages is None:
         thread_messages = fetch_thread_messages(channel_id, thread_ts)
@@ -158,6 +160,7 @@ def run_react_loop(
             ),
             effective_tools,
             effective_dispatch,
+            on_agent_event=on_agent_event,
         )
     draft = loop_result.text
     raw_tool_errors = list(loop_result.tool_errors)

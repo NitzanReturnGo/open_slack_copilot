@@ -4,7 +4,13 @@ from typing import Any, Callable
 from config.config import settings
 
 from .base import CompletionBackend
-from .types import AgentToolLoopResult, NormalizedToolCall, ToolCallRecord
+from .types import (
+    AgentEvent,
+    AgentEventNotifier,
+    AgentToolLoopResult,
+    NormalizedToolCall,
+    ToolCallRecord,
+)
 
 _LLM = settings.llm
 
@@ -20,6 +26,18 @@ def _tool_error_line(tool_name: str, result: str) -> str | None:
     if not isinstance(err, str) or not err.strip():
         return None
     return f"{tool_name}: {err.strip()}"
+
+
+def _notify_agent_event(
+    notify: AgentEventNotifier | None, event: AgentEvent,
+) -> None:
+    if notify is None:
+        return
+    try:
+        notify(event)
+    except Exception:
+        # Observer failures must not break the agent loop.
+        pass
 
 
 def _truncate_preview(content: str, max_len: int) -> str:
@@ -55,6 +73,7 @@ def _run_tools_and_append_results(
     tool_trace: list[ToolCallRecord],
     tool_errors: list[str],
     max_tool_result_preview: int,
+    notify: AgentEventNotifier | None,
 ):
     for tc in tool_calls:
         try:
@@ -64,11 +83,21 @@ def _run_tools_and_append_results(
         err_line = _tool_error_line(tc.name, result)
         if err_line:
             tool_errors.append(err_line)
-        tool_trace.append(
-            ToolCallRecord(
-                name=tc.name,
-                result_preview=_truncate_preview(result, max_tool_result_preview),
-            )
+        record = ToolCallRecord(
+            name=tc.name,
+            result_preview=_truncate_preview(result, max_tool_result_preview),
+        )
+        tool_trace.append(record)
+        _notify_agent_event(
+            notify,
+            AgentEvent(
+                "tool_result",
+                {
+                    "tool_call_id": tc.id,
+                    "name": record.name,
+                    "result_preview": record.result_preview,
+                },
+            ),
         )
         messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
 
@@ -79,6 +108,8 @@ def run_agent_tool_loop(
     user_prompt: str,
     tools: list[dict[str, Any]],
     run_tool: Callable[[str, str], str],
+    *,
+    on_agent_event: AgentEventNotifier | None = None,
 ) -> AgentToolLoopResult:
     max_rounds = int(_LLM.get("max_tool_rounds", 24))
     max_preview = int(_LLM.get("max_tool_result_preview", 600))
@@ -90,13 +121,33 @@ def run_agent_tool_loop(
     tool_trace: list[ToolCallRecord] = []
     tool_errors: list[str] = []
 
-    for _ in range(max_rounds):
+    for round_idx in range(max_rounds):
         turn = backend.complete(messages, tools=tools, tool_choice="auto")
         if not turn.tool_calls:
-            return AgentToolLoopResult(
-                (turn.content or "").strip(), tool_trace, tool_errors
+            text = (turn.content or "").strip()
+            _notify_agent_event(
+                on_agent_event,
+                AgentEvent(
+                    "loop_complete",
+                    {"text": text, "round_index": round_idx},
+                ),
             )
+            return AgentToolLoopResult(text, tool_trace, tool_errors)
         _append_assistant_tool_calls(messages, turn.content, turn.tool_calls)
+        _notify_agent_event(
+            on_agent_event,
+            AgentEvent(
+                "assistant_tool_calls",
+                {
+                    "round_index": round_idx,
+                    "content": turn.content or "",
+                    "tools": [
+                        {"id": tc.id, "name": tc.name, "arguments": tc.arguments or "{}"}
+                        for tc in turn.tool_calls
+                    ],
+                },
+            ),
+        )
         _run_tools_and_append_results(
             messages,
             turn.tool_calls,
@@ -104,6 +155,14 @@ def run_agent_tool_loop(
             tool_trace,
             tool_errors,
             max_preview,
+            on_agent_event,
         )
 
+    _notify_agent_event(
+        on_agent_event,
+        AgentEvent(
+            "loop_max_rounds",
+            {"max_rounds": max_rounds},
+        ),
+    )
     return AgentToolLoopResult("", tool_trace, tool_errors)

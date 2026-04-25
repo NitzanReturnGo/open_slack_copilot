@@ -3,9 +3,16 @@ from typing import Any, Callable
 from common.log import log
 from common.llm.llm_apis import get_completion_backend
 from common.llm.llm_apis.tool_loop import run_agent_tool_loop
-from common.llm.llm_apis.types import AgentToolLoopResult, ToolCallRecord
+from common.llm.llm_apis.types import (
+    AgentEvent,
+    AgentEventNotifier,
+    AgentToolLoopResult,
+    ToolCallRecord,
+)
 
 __all__ = [
+    "AgentEvent",
+    "AgentEventNotifier",
     "AgentToolLoopResult",
     "ToolCallRecord",
     "generate",
@@ -28,6 +35,8 @@ def agent_tool_loop(
     user_prompt: str,
     tools: list[dict[str, Any]],
     run_tool: Callable[[str, str], str],
+    *,
+    on_agent_event: AgentEventNotifier | None = None,
 ) -> AgentToolLoopResult:
     return run_agent_tool_loop(
         get_completion_backend(),
@@ -35,4 +44,5 @@ def agent_tool_loop(
         user_prompt,
         tools,
         run_tool,
+        on_agent_event=on_agent_event,
     )
