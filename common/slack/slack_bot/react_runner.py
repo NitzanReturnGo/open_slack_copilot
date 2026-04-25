@@ -135,16 +135,15 @@ def _compose_post_loop_message(loop_out: ReactLoopResult) -> str | None:
     assistant = (loop_out.text or "").strip()
     assistant_block = ""
     if assistant:
-        excerpt = assistant[:800] + ("…" if len(assistant) > 800 else "")
-        assistant_block = f"*Assistant text (not submitted):*\n{excerpt}"
+        assistant_block = assistant[:800] + ("…" if len(assistant) > 800 else "")
 
     sections: list[str] = []
-    if receipt:
-        sections.append(f"*What ran*\n{receipt}")
-    if errors_block:
-        sections.append(errors_block)
     if assistant_block:
         sections.append(assistant_block)
+    if receipt:
+        sections.append(f"*Action(s) taken:*\n{receipt}")
+    if errors_block:
+        sections.append(errors_block)
 
     if sections:
         return "\n\n".join(sections)

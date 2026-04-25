@@ -72,7 +72,7 @@ def test_post_loop_confirm_pending_still_sends_notify_receipt():
         rr._post_loop_ephemeral("C1", "T1", "U1", loop_out)
     mock_notify.notify_react_feedback.assert_called_once()
     text = mock_notify.notify_react_feedback.call_args[0][3]
-    assert "What ran" in text
+    assert "Action(s) taken:" in text
     assert "schedule_prompt" in text
 
 
@@ -86,7 +86,7 @@ def test_post_loop_schedule_only_no_no_submit_msg():
     with patch.object(rr, "copilot_user_notify", mock_notify):
         rr._post_loop_ephemeral("C1", "T1", "U1", loop_out)
     text = mock_notify.notify_react_feedback.call_args[0][3]
-    assert "What ran" in text
+    assert "Action(s) taken:" in text
     assert rr._NO_SUBMIT_MSG not in text
 
 

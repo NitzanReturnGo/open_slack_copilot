@@ -22,8 +22,6 @@ Two contexts — follow the matching path.
    - **External status** — e.g. Jira; use the right tool to verify.
 4. **`schedule_prompt`** — **`prompt`:** embed user IDs, completion criteria, how to check each user, and thread/channel refs. **`cron`:** 5-field UTC (hourly, daily, or a specific clock time). **`expires_in_days`:** optional; if omitted, default is **7** days; **maximum 14**. The scheduler stops firing after that (`expires_at` on the job). For follow-ups, pass **`expires_in_days: 14`** unless the thread clearly needs a shorter run.
 
-5. **`send_thread_reply_on_behalf_of_requester`** — After any setup (`schedule_prompt`, optional acknowledgments in the instruction), finish by calling **`send_thread_reply_on_behalf_of_requester`** once with the full text the user should post or confirm in the thread. The requester approves it in Slack (**Revise** / **Confirm**) before it is posted in the thread on their behalf (user OAuth).
-
    Example (shape of the tool call):
 
    ```
@@ -40,7 +38,6 @@ Two contexts — follow the matching path.
 
 1. **Check each user** — thread context (reactions, replies) vs criteria in the scheduled prompt.
 2. **Remind** — If not done: call **`send_ephemeral_message`** (`user` = target Slack id, `message` = brief reminder with thread link). Ephemeral appears in the current context; only that user sees it. Polite, brief.
-3. **`send_thread_reply_on_behalf_of_requester`** — If you need to surface a summary or next-step text in the thread, call **`send_thread_reply_on_behalf_of_requester`** once with that text so the scheduling user can confirm before posting.
 
 ## Tone
 

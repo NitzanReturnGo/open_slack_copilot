@@ -4,10 +4,12 @@
 - TO TEST Generic "reply as tool" + send + Oauth
 - TO TEST - bug: "confirm" as name of button is not good. If you click twice on confirm. It will send the message twice. Need to name it "Send thread reply" or "Send DM" (each tool should define at registration) and if possible, one time click, disable on send one.
 - TO TEST - reply is not default, every tool print it's own confirmation. and notify only tools 
-- 
+- CODING: Assistant text is not nice. 
+
 - CODING oauth
-- summarize skill
+- built-in seed skills and installation process to copy the skills with confirmation if the skills folder is not empty
 - thumb up, thumbs down => add to skill examples
+- summarize skill
 - TO CODE conflicting terms in codebase DM and PM
 - urgent unread messages
 - refactor data things like settings and tools saved in ~/.open_slack_copilot to database using common/data_layer/

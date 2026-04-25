@@ -151,10 +151,10 @@ def run_react_loop(
         loop_result = llm_client.agent_tool_loop(
             prompt,
             (
-                "Finish by calling send_thread_reply_on_behalf_of_requester exactly once with the full message text "
-                "to post in the thread after the user confirms. "
-                "Use schedule_prompt, send_slack_pm, list_usergroup_members, or other tools "
-                "first when the selected skills require them."
+                "If a reply in the thread is expected, call send_thread_reply_on_behalf_of_requester with the full "
+                "message text; the requester will get confirmation in Slack before it is posted. "
+                "If no public thread message is needed (e.g. only scheduling or other tools), do not use that tool. "
+                "Use schedule_prompt, send_slack_pm, list_usergroup_members, or other tools when the selected skills require them."
             ),
             effective_tools,
             effective_dispatch,
