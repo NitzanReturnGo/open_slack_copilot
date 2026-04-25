@@ -129,7 +129,7 @@ def _print_scheduled_job_disk_files(job_id: str) -> None:
 def print_scheduled_prompt_jobs() -> None:
     """Load prompt jobs from disk, print each APScheduler job, then stop the scheduler.
 
-    For CLI use (e.g. ``make schedules-list``): avoids leaving a running
+    For CLI use (e.g. ``make scheduled_prompts_list``): avoids leaving a running
     ``BackgroundScheduler`` thread so the process can exit.
     """
     try:
@@ -145,6 +145,27 @@ def print_scheduled_prompt_jobs() -> None:
             _print_scheduled_job_disk_files(job.id)
     finally:
         shutdown_scheduler()
+
+
+def clear_all_scheduled_prompt_jobs() -> None:
+    """Remove all scheduled prompt jobs (APScheduler + on-disk under ``scheduled_prompts_root``)."""
+    root = scheduled_prompts_root()
+    n_dirs = len([d for d in root.iterdir() if d.is_dir()]) if root.is_dir() else 0
+    try:
+        reload_jobs_from_disk()
+        s = _ensure_scheduler()
+        for job in list(s.get_jobs()):
+            remove_job(job.id, delete_files=True)
+        if root.is_dir():
+            for d in list(root.iterdir()):
+                if d.is_dir():
+                    shutil.rmtree(d, ignore_errors=True)
+    finally:
+        shutdown_scheduler()
+    if n_dirs == 0:
+        print("(no scheduled prompt jobs to clear)")
+    else:
+        print(f"Cleared {n_dirs} scheduled prompt job(s).")
 
 
 def remove_job(job_id: str, delete_files: bool = True):

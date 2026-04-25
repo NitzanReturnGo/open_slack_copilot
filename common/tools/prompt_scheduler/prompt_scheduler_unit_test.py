@@ -137,6 +137,17 @@ def test_print_scheduled_prompt_jobs_empty(tmp_path, monkeypatch, capsys):
     assert sched._scheduler is None  # noqa: SLF001
 
 
+def test_clear_all_scheduled_prompt_jobs(tmp_path, monkeypatch):
+    monkeypatch.setattr(sched, "scheduled_prompts_root", lambda: tmp_path)
+    _write_job(tmp_path, "a", _future_meta(cron="0 9 * * *"))
+    _write_job(tmp_path, "b", _future_meta(cron="0 10 * * *", channel_id="C2"))
+
+    sched.clear_all_scheduled_prompt_jobs()
+
+    assert not any(tmp_path.iterdir())
+    assert sched._scheduler is None  # noqa: SLF001
+
+
 @patch("common.tools.prompt_scheduler.prompt_scheduler.BackgroundScheduler")
 def test_sequential_executor_config(mock_bs):
     sched.shutdown_scheduler()

@@ -2,7 +2,7 @@
 	rag-inspect-all-channels rag-inspect-channel rag-inspect-all \
 	rag-inspect-collection rag-list-collections rag-help \
 	rag-clean rag-clean-dry-run \
-	schedules-list
+	scheduled_prompts_list scheduled_prompts_clear
 
 PYTHON ?= python3
 PY := .venv/bin/python
@@ -87,7 +87,11 @@ rag-clean:
 		echo "Nothing to remove: $(RAG_STORAGE) (already absent)"; \
 	fi
 
+# (Make does not support `name:sub` as a target: the `:` starts prerequisites; use _list / _clear.)
 # --- Scheduled prompts: APScheduler jobs + metadata.json / prompt.txt from disk (see scheduled_prompts.storage_path) ---
 
-schedules-list: install
+scheduled_prompts_list: install
 	PYTHONPATH=. $(PY) -c "from common.tools.prompt_scheduler.prompt_scheduler import print_scheduled_prompt_jobs; print_scheduled_prompt_jobs()"
+
+scheduled_prompts_clear: install
+	PYTHONPATH=. $(PY) -c "from common.tools.prompt_scheduler.prompt_scheduler import clear_all_scheduled_prompt_jobs; clear_all_scheduled_prompt_jobs()"
