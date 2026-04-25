@@ -10,6 +10,7 @@
 - built-in seed skills and installation process to copy the skills with confirmation if the skills folder is not empty
 - thumb up, thumbs down => add to skill examples
 - summarize skill
+- search something in slack. default search in current channel, tool to search in channels with from, with and dste range, and sorting. tool to search names of channels to be used before running this search. then tool to get thread data. the tool loop should do the rest
 - urgent unread messages
 - refactor data things like settings and tools saved in ~/.open_slack_copilot to database using common/data_layer/
 - chat with the app itself on slack, should be free agent chat, not sure what is the difference.
