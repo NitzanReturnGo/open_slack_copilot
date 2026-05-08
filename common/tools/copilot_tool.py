@@ -42,6 +42,8 @@ class CopilotTool:
     handle: Callable[[str], str]
     confirmation: ToolConfirmationSpec | None = None
     execute_after_confirm: Callable[[str, dict[str, Any]], str] | None = None
+    action_receipt_label: str | None = None
+    """Short label for notify-mode *Action(s) taken* bullets (Slack ephemeral)."""
 
 
 _by_name: dict[str, CopilotTool] = {}
@@ -60,6 +62,15 @@ def get_copilot_tool(name: str) -> CopilotTool | None:
 def get_tool_confirmation_spec(tool_name: str) -> ToolConfirmationSpec | None:
     t = get_copilot_tool(tool_name)
     return t.confirmation if t else None
+
+
+def tool_action_receipt_label(tool_name: str) -> str:
+    """Human-readable tool name for post-loop receipts (notify-mode tools)."""
+    t = get_copilot_tool(tool_name)
+    if t and (t.action_receipt_label or "").strip():
+        return t.action_receipt_label.strip()
+    base = (tool_name or "").strip() or "tool"
+    return base.replace("_", " ").title()
 
 
 def dispatch_copilot_tool(name: str, arguments_json: str) -> str | None:

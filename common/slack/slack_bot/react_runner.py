@@ -19,6 +19,7 @@ from common.slack import copilot_user_notify
 from common.tools.copilot_tool import (
     TOOL_JSON_STATUS_CONFIRMATION_REQUESTED,
     get_tool_confirmation_spec,
+    tool_action_receipt_label,
 )
 
 _logger = logging.getLogger(__name__)
@@ -79,33 +80,33 @@ def _trace_shows_confirm_ui_pending(trace: list[ToolCallRecord]) -> bool:
 
 def _notify_tool_receipt_line(tool_name: str, result_preview: str) -> str | None:
     """One bullet for a notify-mode (no confirmation spec) tool result."""
-    name = (tool_name or "").strip() or "tool"
+    label = tool_action_receipt_label(tool_name)
     raw = (result_preview or "").strip()
     if not raw:
-        return f"• `{name}`: (empty result)"
+        return f"• {label}: (empty result)"
     try:
         obj = json.loads(raw)
     except json.JSONDecodeError:
-        return f"• `{name}`: (invalid JSON)"
+        return f"• {label}: (invalid JSON)"
     if not isinstance(obj, dict):
-        return f"• `{name}`: {raw[:200]}{'…' if len(raw) > 200 else ''}"
+        return f"• {label}: {raw[:200]}{'…' if len(raw) > 200 else ''}"
     err = obj.get("error")
     if err is not None:
-        return f"• `{name}`: {err}"
+        return f"• {label}: {err}"
     msg = obj.get("message")
     if msg is not None and str(msg).strip():
-        return f"• `{name}`: {msg}"
+        return f"• {label}: {msg}"
     status = obj.get("status")
     if status is not None and str(status).strip():
         extra = obj.get("job_id")
         if extra:
-            return f"• `{name}`: {status} (`{extra}`)"
-        return f"• `{name}`: {status}"
+            return f"• {label}: {status} (`{extra}`)"
+        return f"• {label}: {status}"
     uids = obj.get("user_ids")
-    if isinstance(uids, list) and name == "list_usergroup_members":
+    if isinstance(uids, list) and (tool_name or "").strip() == "list_usergroup_members":
         ug = obj.get("usergroup_id") or "?"
-        return f"• `{name}`: {len(uids)} member(s) in `{ug}`"
-    return f"• `{name}`: ok"
+        return f"• {label}: {len(uids)} member(s) in `{ug}`"
+    return f"• {label}: ok"
 
 
 def _build_notify_mode_receipt(trace: list[ToolCallRecord]) -> str:

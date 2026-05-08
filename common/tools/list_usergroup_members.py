@@ -65,6 +65,7 @@ LIST_USERGROUP_MEMBERS = CopilotTool(
     name="list_usergroup_members",
     llm_schema=LIST_USERGROUP_MEMBERS_TOOL,
     handle=handle_list_usergroup_members_call,
+    action_receipt_label="User group members",
 )
 
 register_copilot_tool(LIST_USERGROUP_MEMBERS)

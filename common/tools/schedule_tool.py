@@ -130,6 +130,7 @@ SCHEDULE_PROMPT = CopilotTool(
     name="schedule_prompt",
     llm_schema=SCHEDULE_PROMPT_TOOL,
     handle=handle_schedule_prompt_call,
+    action_receipt_label="Scheduled prompt",
 )
 
 register_copilot_tool(SCHEDULE_PROMPT)

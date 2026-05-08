@@ -51,7 +51,7 @@ def test_build_notify_mode_receipt_schedule_prompt():
         ),
     ]
     body = rr._build_notify_mode_receipt(trace)
-    assert "schedule_prompt" in body
+    assert "Scheduled prompt" in body
     assert "Prompt scheduled" in body
 
 
@@ -73,7 +73,7 @@ def test_post_loop_confirm_pending_still_sends_notify_receipt():
     mock_notify.notify_react_feedback.assert_called_once()
     text = mock_notify.notify_react_feedback.call_args[0][3]
     assert "Action(s) taken:" in text
-    assert "schedule_prompt" in text
+    assert "Scheduled prompt" in text
 
 
 def test_post_loop_schedule_only_no_no_submit_msg():

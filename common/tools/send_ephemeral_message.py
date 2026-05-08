@@ -5,6 +5,14 @@ from common.tools.copilot_tool import CopilotTool, register_copilot_tool
 from common.tools.react_context import get_invocation
 
 _TOOL_NAME = "send_ephemeral_message"
+_RECEIPT_MESSAGE_PREVIEW_CHARS = 500
+
+
+def _truncate_preview(text: str, max_chars: int = _RECEIPT_MESSAGE_PREVIEW_CHARS) -> str:
+    t = (text or "").strip()
+    if len(t) <= max_chars:
+        return t
+    return f"{t[: max_chars - 1].rstrip()}…"
 
 SEND_EPHEMERAL_MESSAGE_TOOL = {
     "type": "function",
@@ -60,13 +68,19 @@ def _invoke(arguments_json: str) -> str:
         slack_api.send_ephemeral(channel_id, thread_ts, uid, message)
     except Exception as e:
         return json.dumps({"error": str(e)})
-    return json.dumps({"status": "sent"})
+    who = (slack_api.get_user_display_name(uid) or "").strip() or uid
+    preview = _truncate_preview(message)
+    return json.dumps({
+        "status": "sent",
+        "message": f"To {who}: {preview}",
+    })
 
 
 SEND_EPHEMERAL_MESSAGE = CopilotTool(
     name=_TOOL_NAME,
     llm_schema=SEND_EPHEMERAL_MESSAGE_TOOL,
     handle=_invoke,
+    action_receipt_label="Ephemeral message",
 )
 
 register_copilot_tool(SEND_EPHEMERAL_MESSAGE)
