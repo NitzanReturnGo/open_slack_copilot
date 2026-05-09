@@ -1,14 +1,10 @@
-- [TO TEST] message shortcut enable editing the prompt
-- [TO TEST] scheduler 
-- [TO TEST] follow-up skill - reminder should be ephemeral messages to the user
 - [TO TEST] Generic "reply as tool" + send + Oauth
-- [TO TEST] bug: "confirm" as name of button is not good. If you click twice on confirm. It will send the message twice. Need to name it "Send thread reply" or "Send DM" (each tool should define at registration) and if possible, one time click, disable on send one.
 - [TO TEST] reply is not default, every tool print it's own confirmation. and notify only tools 
 - [TO TEST] oauth
-- [TO TEST] proper tool display names, a notification of "schedule_prompt: Prompt scheduled with cron '0 9 * * *'; expires in 14 days." is weir. "schedule_prompt" is not a readable name
 
-- built-in seed skills and installation process to copy the skills with confirmation if the skills folder is not empty
+
 - thumb up, thumbs down => add to skill examples
+- built-in seed skills and installation process to copy the skills with confirmation if the skills folder is not empty
 - summarize skill
 - search something in slack. default search in current channel, tool to search in channels with from, with and dste range, and sorting. tool to search names of channels to be used before running this search. then tool to get thread data. the tool loop should do the rest
 - evals
