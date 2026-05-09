@@ -27,6 +27,15 @@ def get_client() -> WebClient:
     return _client
 
 
+def get_bot_user_id() -> str | None:
+    """Slack user id (U…) for this app's bot user; ``auth_test``."""
+    try:
+        uid = get_client().auth_test().get("user_id")
+        return str(uid).strip() if uid else None
+    except Exception:
+        return None
+
+
 def set_client(client: WebClient):
     global _client
     _client = client

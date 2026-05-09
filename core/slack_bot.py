@@ -17,10 +17,7 @@ from config.config import settings, parse_duration_seconds
 
 
 def _get_bot_user_id() -> str | None:
-    try:
-        return slack_api.get_client().auth_test()["user_id"]
-    except Exception:
-        return None
+    return slack_api.get_bot_user_id()
 
 
 def start():

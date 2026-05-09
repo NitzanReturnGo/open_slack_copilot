@@ -15,7 +15,7 @@ Two contexts — follow the matching path.
 ### A. First invocation (user asks to follow up)
 
 1. **Infer check frequency or exact date** - daily, hourly or exact date. Default: daily. Keep it daily unless clearly said otherwise.
-2. **Resolve target users** — For **named people**, read **`<@U…>`** from thread message text (Slack stores mentions that way) and use the **Users** roster in context for id ↔ name. For **user groups**, call `list_usergroup_members` (S… id, `<!subteam^S…>` in the message, or handle).
+2. **Resolve target users** — For **named people**, read **`<@U…>`** from thread message text (Slack stores mentions that way) and use the **Users** roster in context for id ↔ name. For **user groups**, call `list_usergroup_members` (S… id, `<!subteam^S…>` in the message, or handle). **Exclude the requester** (the user who asked for the follow-up) from the target list — never mention them in reminders.
 3. **Completion criteria** (pick from context):
    - **Emoji reaction** — e.g. ✅ (`:white_check_mark:`). Reactions and the users who set them are already included in the thread context.
    - **Thread confirmation** — acknowledgment reply in the thread.
@@ -37,7 +37,7 @@ Two contexts — follow the matching path.
 ### B. Scheduled run (same reply pipeline; instruction is the saved prompt)
 
 1. **Check each user** — thread context (reactions, replies) vs criteria in the scheduled prompt.
-2. **Remind** — Collect every user still missing the completion signal. If none remain, do nothing. Otherwise call **`send_thread_reply_as_app`** ONCE with a brief reminder that `<@…>`-mentions all pending users in a single message. Do not loop per user; do not use `send_ephemeral_message` (ephemerals only render if the recipient currently has the channel open, so scheduled reminders get lost). Polite, brief.
+2. **Remind** — Collect every user still missing the completion signal (excluding the requester). If none remain, do nothing. Otherwise call **`send_thread_reply_as_app`** ONCE with a brief reminder that `<@…>`-mentions all pending users in a single message. Do not loop per user; do not use `send_ephemeral_message` (ephemerals only render if the recipient currently has the channel open, so scheduled reminders get lost). Polite, brief.
 
 ## Tone
 

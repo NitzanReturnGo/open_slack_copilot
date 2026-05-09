@@ -81,7 +81,6 @@ class TestComposeSystemPrompt:
         assert prompt.index("Example Replies") < prompt.index("## Thread")
         assert prompt.index("## Thread") < prompt.index("## Instruction")
 
-
 class TestSelectSkills:
     @patch("common.slack.copilot_pipeline.progressive_disclosure")
     def test_returns_skills_when_matched(self, mock_pd):

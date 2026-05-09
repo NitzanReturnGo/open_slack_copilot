@@ -149,19 +149,23 @@ def run_react_loop(
     )
     effective_tools = _resolve_tools(tools, excluded_tools)
     effective_dispatch = tool_dispatch or dispatch_copilot_tool
+    bot_uid = slack_api.get_bot_user_id()
+    tool_extra = (
+        "If a reply in the thread is expected, call the appropriate thread-reply tool: "
+        "send_thread_reply_on_behalf_of_requester for replies posted as the requester (default user-driven drafts), "
+        "or send_thread_reply_as_app for automated reminders/notifications posted as the bot. "
+        "The requester will confirm in Slack before it is posted. "
+        "If no public thread message is needed (e.g. only scheduling or other tools), do not call a thread-reply tool. "
+        "Use schedule_prompt, send_dm_as_app, list_usergroup_members, or other tools when the selected skills require them."
+    )
+    if bot_uid:
+        tool_extra += f" Never mention `<@{bot_uid}>` in tool messages — that id is this app."
     with react_invocation_context(
         channel_id, thread_ts, user_id, context_kind=context_kind,
     ):
         loop_result = llm_client.agent_tool_loop(
             prompt,
-            (
-                "If a reply in the thread is expected, call the appropriate thread-reply tool: "
-                "send_thread_reply_on_behalf_of_requester for replies posted as the requester (default user-driven drafts), "
-                "or send_thread_reply_as_app for automated reminders/notifications posted as the bot. "
-                "The requester will confirm in Slack before it is posted. "
-                "If no public thread message is needed (e.g. only scheduling or other tools), do not call a thread-reply tool. "
-                "Use schedule_prompt, send_dm_as_app, list_usergroup_members, or other tools when the selected skills require them."
-            ),
+            tool_extra,
             effective_tools,
             effective_dispatch,
             on_agent_event=on_agent_event,
