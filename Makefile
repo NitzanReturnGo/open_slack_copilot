@@ -24,8 +24,8 @@ RAG_STORAGE ?= .rag_storage
 
 install: .venv/.installed
 
-run:
-	.venv/bin/python -m core.slack_bot
+run: install
+	PYTHONPATH=. .venv/bin/python -m core.run
 
 # Localhost Slack user OAuth (stores xoxp- via oauth_token_store); set SLACK_CLIENT_ID + SLACK_CLIENT_SECRET.
 oauth-server: install

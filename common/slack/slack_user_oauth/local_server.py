@@ -52,7 +52,7 @@ def effective_redirect_uri() -> str:
     if override:
         return override
     uo = _user_oauth_settings()
-    return (uo.get("redirect_uri") or "http://127.0.0.1:8765/slack/oauth/callback").strip()
+    return (uo.get("redirect_uri")).strip()
 
 
 def build_authorize_url(*, client_id: str, user_scopes: list[str], redirect_uri: str, state: str) -> str:

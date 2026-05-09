@@ -109,6 +109,9 @@ Paste this when creating the app from a manifest:
         ]
     },
     "oauth_config": {
+        "redirect_urls": [
+            "http://127.0.0.1:8765/slack/oauth/callback"
+        ],
         "scopes": {
             "bot": [
                 "app_mentions:read",
