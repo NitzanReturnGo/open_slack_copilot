@@ -197,8 +197,13 @@ def _parse_revise_metadata(raw: str) -> dict[str, Any]:
 
 
 def _ephemeral_thread_ts(body: dict) -> str | None:
+    """Thread parent ts for chat.postEphemeral after an interactive action.
+
+    Ephemeral confirmation UIs often put ``thread_ts`` on ``container``, not ``message``.
+    """
     msg = body.get("message") or {}
-    return msg.get("thread_ts") or msg.get("ts")
+    container = body.get("container") or {}
+    return msg.get("thread_ts") or container.get("thread_ts") or msg.get("ts")
 
 
 def _reply_ephemeral_from_action(body: dict, text: str) -> None:

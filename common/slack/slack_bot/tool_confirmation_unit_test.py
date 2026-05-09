@@ -21,6 +21,28 @@ def _sample_blocks(text: str, payload: dict | None = None) -> list[dict]:
     return tc._build_confirmation_blocks("send_dm_as_app", spec, text, p)
 
 
+def test_ephemeral_thread_ts_prefers_message_then_container():
+    thread_root = "1778357030.363219"
+    assert (
+        tc._ephemeral_thread_ts(
+            {
+                "message": {"thread_ts": thread_root},
+                "container": {"thread_ts": "other"},
+            },
+        )
+        == thread_root
+    )
+    assert (
+        tc._ephemeral_thread_ts(
+            {
+                "message": {"ts": "1778357039.000400"},
+                "container": {"thread_ts": thread_root},
+            },
+        )
+        == thread_root
+    )
+
+
 def test_confirm_primary_button_uses_spec_label():
     for tool_name, label, payload in (
         (
