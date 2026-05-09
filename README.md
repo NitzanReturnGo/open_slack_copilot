@@ -119,6 +119,9 @@ Paste this when creating the app from a manifest:
                 "commands",
                 "channels:history",
                 "groups:history"
+            ],
+            "user": [
+                "chat:write"
             ]
         },
         "pkce_enabled": false
