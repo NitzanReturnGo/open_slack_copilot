@@ -112,7 +112,7 @@ def send_dm(user_id: str, text: str):
     client = get_client()
     conv = client.conversations_open(users=user_id)
     ch = conv["channel"]["id"]
-    client.chat_postMessage(channel=ch, text=text, parse="full")
+    client.chat_postMessage(channel=ch, text=text, mrkdwn=True)
 
 
 @log
@@ -128,14 +128,17 @@ def send_dm_on_behalf_of_requester(
     client = WebClient(token=token, ssl=_ssl_context())
     conv = client.conversations_open(users=target_user_id)
     ch = conv["channel"]["id"]
-    client.chat_postMessage(channel=ch, text=text, parse="full")
+    client.chat_postMessage(channel=ch, text=text, mrkdwn=True)
 
 
 @log
 def post_thread_message_as_app(channel_id: str, thread_ts: str, text: str) -> None:
     """Post a message in a channel thread (bot / app identity)."""
     get_client().chat_postMessage(
-        channel=channel_id, thread_ts=thread_ts, text=text, parse="full",
+        channel=channel_id,
+        thread_ts=thread_ts,
+        text=text,
+        mrkdwn=True,
     )
 
 
@@ -152,7 +155,10 @@ def post_thread_message_on_behalf_of_requester(
         raise OAuthNotConnectedError(requester_user_id)
     client = WebClient(token=token, ssl=_ssl_context())
     client.chat_postMessage(
-        channel=channel_id, thread_ts=thread_ts, text=text, parse="full",
+        channel=channel_id,
+        thread_ts=thread_ts,
+        text=text,
+        mrkdwn=True,
     )
 
 
