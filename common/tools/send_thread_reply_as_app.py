@@ -1,9 +1,9 @@
-"""Thread reply as the Slack app (bot). Prepared for future watcher/supervision flows — not registered."""
+"""Thread reply as the Slack app (bot). Used by skills that post automated reminders/notifications in-thread."""
 
 from __future__ import annotations
 
 from common.slack.slack_api import slack_api
-from common.tools.copilot_tool import ToolConfirmationSpec
+from common.tools.copilot_tool import ToolConfirmationSpec, register_copilot_tool
 from common.tools.send_thread_reply_base_tool_helper import build_thread_reply_copilot_tool
 
 _TOOL_NAME = "send_thread_reply_as_app"
@@ -25,4 +25,4 @@ SEND_THREAD_REPLY_AS_APP_TOOL, SEND_THREAD_REPLY_AS_APP = build_thread_reply_cop
     ),
     post=lambda ch, th, body, _pld: slack_api.post_thread_message_as_app(ch, th, body),
 )
-# Intentionally not register_copilot_tool: opt-in for future skills only.
+register_copilot_tool(SEND_THREAD_REPLY_AS_APP)

@@ -6,8 +6,8 @@ from common.tools.send_thread_reply_as_app import (
 )
 
 
-def test_app_tool_built_not_registered():
+def test_app_tool_built_and_registered():
     assert SEND_THREAD_REPLY_AS_APP_TOOL["function"]["name"] == "send_thread_reply_as_app"
-    assert get_copilot_tool("send_thread_reply_as_app") is None
+    assert get_copilot_tool("send_thread_reply_as_app") is SEND_THREAD_REPLY_AS_APP
     assert SEND_THREAD_REPLY_AS_APP.name == "send_thread_reply_as_app"
     assert SEND_THREAD_REPLY_AS_APP.execute_after_confirm is not None

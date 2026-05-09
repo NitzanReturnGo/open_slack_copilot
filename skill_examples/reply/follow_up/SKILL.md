@@ -6,7 +6,7 @@ When asked to follow up with users on an action item from a Slack thread.
 
 ## Goal
 
-Register a **`schedule_prompt`** job that re-checks completion and uses **`send_ephemeral_message`** to remind users who have not acted (thread ephemerals visible only to each recipient, not DMs).
+Register a **`schedule_prompt`** job that re-checks completion and posts a single in-thread reply via **`send_thread_reply_as_app`** mentioning all users who have not acted (one message that addresses everyone still pending; no per-user loop).
 
 ## Steps
 
@@ -29,7 +29,7 @@ Two contexts — follow the matching path.
      Follow-up: RFC review in #backend, thread https://slack.com/archives/C04XX/p17120...
      Users: U0A1B2C, U3D4E5F, U6G7H8I. Done when: ✅ on original message (reactions in thread context).
      1. From thread context, see who has ✅.
-     2. For anyone missing ✅, `send_ephemeral_message` reminder + thread URL.
+     2. Collect everyone still missing ✅. If the list is non-empty, call `send_thread_reply_as_app` ONCE with a brief reminder that mentions all of them (`<@U0A1B2C> <@U3D4E5F> …`). Do not loop per user.
    cron: "0 9 * * *"
    expires_in_days: 14
    ```
@@ -37,7 +37,7 @@ Two contexts — follow the matching path.
 ### B. Scheduled run (same reply pipeline; instruction is the saved prompt)
 
 1. **Check each user** — thread context (reactions, replies) vs criteria in the scheduled prompt.
-2. **Remind** — If not done: call **`send_ephemeral_message`** (`user` = target Slack id, `message` = brief reminder with thread link). Ephemeral appears in the current context; only that user sees it. Polite, brief.
+2. **Remind** — Collect every user still missing the completion signal. If none remain, do nothing. Otherwise call **`send_thread_reply_as_app`** ONCE with a brief reminder that `<@…>`-mentions all pending users in a single message. Do not loop per user; do not use `send_ephemeral_message` (ephemerals only render if the recipient currently has the channel open, so scheduled reminders get lost). Polite, brief.
 
 ## Tone
 
