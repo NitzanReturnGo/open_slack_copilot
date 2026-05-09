@@ -77,6 +77,37 @@ class TestRunReactLoopExcludedTools:
         assert SEND_EPHEMERAL_MESSAGE_TOOL in tools_passed
         assert LIST_USERGROUP_MEMBERS_TOOL in tools_passed
 
+    @patch("common.slack.copilot_pipeline.fetch_thread_messages")
+    @patch("common.slack.copilot_pipeline.slack_rag")
+    @patch("common.slack.copilot_pipeline.progressive_disclosure")
+    @patch("common.slack.copilot_pipeline.llm_client")
+    @patch("common.slack.copilot_pipeline.slack_api")
+    def test_both_thread_reply_tools_always_exposed(
+        self, mock_slack, mock_llm, mock_pd, mock_rag, mock_fetch,
+    ):
+        mock_pd.select_skills.return_value = []
+        mock_pd.get_default_instruction.return_value = "default"
+        mock_rag.is_ready.return_value = True
+        mock_rag.query_channel.return_value = []
+        mock_rag.missing_channels.return_value = []
+        mock_rag.query_cross_channel.return_value = []
+        mock_llm.agent_tool_loop.return_value = AgentToolLoopResult("ok", [])
+        mock_fetch.return_value = [{"text": "x"}]
+
+        for action in (None, "send_thread_reply_on_behalf_of_requester"):
+            mock_llm.agent_tool_loop.reset_mock()
+            run_react_loop(
+                "C",
+                "T1",
+                "U1",
+                "",
+                copilot_trigger="app_mention" if action else None,
+                copilot_action=action,
+            )
+            tools_passed = mock_llm.agent_tool_loop.call_args[0][2]
+            assert SEND_THREAD_REPLY_AS_APP_TOOL in tools_passed, action
+            assert SEND_THREAD_REPLY_ON_BEHALF_OF_REQUESTER_TOOL in tools_passed, action
+
 
 class TestRunReactLoopToolErrorsInOutput:
     @patch("common.slack.copilot_pipeline.fetch_thread_messages")

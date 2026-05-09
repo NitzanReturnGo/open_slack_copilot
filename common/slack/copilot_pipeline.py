@@ -151,12 +151,17 @@ def run_react_loop(
     effective_dispatch = tool_dispatch or dispatch_copilot_tool
     bot_uid = slack_api.get_bot_user_id()
     tool_extra = (
-        "If a reply in the thread is expected, call the appropriate thread-reply tool: "
-        "send_thread_reply_on_behalf_of_requester for replies posted as the requester (default user-driven drafts), "
-        "or send_thread_reply_as_app for automated reminders/notifications posted as the bot. "
-        "The requester will confirm in Slack before it is posted. "
-        "If no public thread message is needed (e.g. only scheduling or other tools), do not call a thread-reply tool. "
-        "Use schedule_prompt, send_dm_as_app, list_usergroup_members, or other tools when the selected skills require them."
+        "Thread reply tool selection (mandatory rules):\n"
+        "- Default: call `send_thread_reply_on_behalf_of_requester`. Use it whenever the requester asks "
+        "you to write/draft/send a message in the thread, including phrasings like 'reply', 'answer', "
+        "'send from me', 'in my name', 'on my behalf', or any first-person message authored for them.\n"
+        "- Only call `send_thread_reply_as_app` when the message is an automated reminder, nudge, or "
+        "notification that the bot itself is announcing (e.g. scheduled reminders, system notices). "
+        "Never use it for messages the requester would naturally say themselves.\n"
+        "If unsure, choose `send_thread_reply_on_behalf_of_requester`. The requester confirms in Slack "
+        "before anything is posted; if user OAuth is not connected, they get instructions to connect.\n"
+        "If no public thread message is needed (only scheduling/lookup tools), do not call any thread-reply tool. "
+        "Use `schedule_prompt`, `send_dm_as_app`, `list_usergroup_members`, etc., when the selected skills require them."
     )
     if bot_uid:
         tool_extra += f" Never mention `<@{bot_uid}>` in tool messages — that id is this app."

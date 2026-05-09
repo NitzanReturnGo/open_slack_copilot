@@ -11,8 +11,9 @@ _TOOL_NAME = "send_thread_reply_as_app"
 SEND_THREAD_REPLY_AS_APP_TOOL, SEND_THREAD_REPLY_AS_APP = build_thread_reply_copilot_tool(
     tool_name=_TOOL_NAME,
     description=(
-        "Submit the proposed reply to this thread. The requester must confirm in Slack. "
-        "The message is posted in the thread as the app (bot), not as the user."
+        "Reminder/notification tool. Posts in the thread as the app (bot), not as a person. "
+        "Use ONLY for automated reminders, nudges, or system notices that the bot itself is "
+        "announcing — never for messages a person would author."
     ),
     confirmation=ToolConfirmationSpec(
         text_param_key="message",

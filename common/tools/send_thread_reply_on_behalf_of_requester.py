@@ -11,8 +11,10 @@ _TOOL_NAME = "send_thread_reply_on_behalf_of_requester"
 SEND_THREAD_REPLY_ON_BEHALF_OF_REQUESTER_TOOL, _TOOL = build_thread_reply_copilot_tool(
     tool_name=_TOOL_NAME,
     description=(
-        "Submit the proposed reply to this thread. The requester must confirm in Slack. "
-        "The message is posted in the thread on behalf of the requester (user OAuth), not as the app."
+        "Default tool for thread replies. Posts the message in the thread under the requester's "
+        "identity (user OAuth) after they confirm. Use this whenever the requester asks the assistant "
+        "to write/send a message they would naturally author themselves (including 'send from me', "
+        "'in my name', 'on my behalf', or any first-person reply)."
     ),
     confirmation=ToolConfirmationSpec(
         text_param_key="message",
