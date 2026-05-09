@@ -21,6 +21,7 @@ from common.tools.list_usergroup_members import LIST_USERGROUP_MEMBERS_TOOL
 from common.tools.schedule_tool import SCHEDULE_PROMPT_TOOL
 from common.tools.send_ephemeral_message import SEND_EPHEMERAL_MESSAGE_TOOL
 from common.tools.send_dm_as_app import SEND_DM_AS_APP_TOOL
+from common.tools.send_thread_reply_as_app import SEND_THREAD_REPLY_AS_APP_TOOL
 from common.tools.send_thread_reply_on_behalf_of_requester import (
     SEND_THREAD_REPLY_ON_BEHALF_OF_REQUESTER_TOOL,
 )
@@ -35,6 +36,7 @@ _INTERACTIVE_TOOLS = [
     SCHEDULE_PROMPT_TOOL,
     SEND_DM_AS_APP_TOOL,
     SEND_THREAD_REPLY_ON_BEHALF_OF_REQUESTER_TOOL,
+    SEND_THREAD_REPLY_AS_APP_TOOL,
     SEND_EPHEMERAL_MESSAGE_TOOL,
     LIST_USERGROUP_MEMBERS_TOOL,
 ]
@@ -153,9 +155,11 @@ def run_react_loop(
         loop_result = llm_client.agent_tool_loop(
             prompt,
             (
-                "If a reply in the thread is expected, call send_thread_reply_on_behalf_of_requester with the full "
-                "message text; the requester will get confirmation in Slack before it is posted. "
-                "If no public thread message is needed (e.g. only scheduling or other tools), do not use that tool. "
+                "If a reply in the thread is expected, call the appropriate thread-reply tool: "
+                "send_thread_reply_on_behalf_of_requester for replies posted as the requester (default user-driven drafts), "
+                "or send_thread_reply_as_app for automated reminders/notifications posted as the bot. "
+                "The requester will confirm in Slack before it is posted. "
+                "If no public thread message is needed (e.g. only scheduling or other tools), do not call a thread-reply tool. "
                 "Use schedule_prompt, send_dm_as_app, list_usergroup_members, or other tools when the selected skills require them."
             ),
             effective_tools,

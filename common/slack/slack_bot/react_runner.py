@@ -125,7 +125,9 @@ def _has_substantive_assistant_text(loop_out: ReactLoopResult) -> bool:
     return bool((loop_out.text or "").strip())
 
 
-def _compose_post_loop_message(loop_out: ReactLoopResult) -> str | None:
+def _compose_post_loop_message(
+    loop_out: ReactLoopResult, *, include_assistant_text: bool = True,
+) -> str | None:
     """Build user-visible ephemeral body, or None if nothing to send."""
     receipt = _build_notify_mode_receipt(loop_out.tool_trace).strip()
     errors_block = (
@@ -135,7 +137,7 @@ def _compose_post_loop_message(loop_out: ReactLoopResult) -> str | None:
     )
     assistant = (loop_out.text or "").strip()
     assistant_block = ""
-    if assistant:
+    if include_assistant_text and assistant:
         assistant_block = assistant[:800] + ("…" if len(assistant) > 800 else "")
 
     sections: list[str] = []
@@ -259,7 +261,9 @@ def _post_loop_ephemeral(
     loop_out: ReactLoopResult,
 ) -> None:
     confirm_pending = _trace_shows_confirm_ui_pending(loop_out.tool_trace)
-    body = _compose_post_loop_message(loop_out)
+    body = _compose_post_loop_message(
+        loop_out, include_assistant_text=not confirm_pending,
+    )
 
     if confirm_pending:
         if body:

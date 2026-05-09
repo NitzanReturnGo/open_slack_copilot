@@ -76,6 +76,23 @@ def test_post_loop_confirm_pending_still_sends_notify_receipt():
     assert "Scheduled prompt" in text
 
 
+def test_post_loop_confirm_pending_suppresses_assistant_text():
+    loop_out = ReactLoopResult(
+        "I've drafted a reply. Please confirm in Slack.",
+        [
+            ToolCallRecord(
+                "send_thread_reply_on_behalf_of_requester",
+                '{"status":"tool_confirmation_requested"}',
+            ),
+        ],
+        [],
+    )
+    mock_notify = MagicMock()
+    with patch.object(rr, "copilot_user_notify", mock_notify):
+        rr._post_loop_ephemeral("C1", "T1", "U1", loop_out)
+    mock_notify.notify_react_feedback.assert_not_called()
+
+
 def test_post_loop_schedule_only_no_no_submit_msg():
     loop_out = ReactLoopResult(
         "",
