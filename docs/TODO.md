@@ -10,12 +10,14 @@
 - built-in seed skills and installation process to copy the skills with confirmation if the skills folder is not empty
 - thumb up, thumbs down => add to skill examples
 - summarize skill
+- search something in slack. default search in current channel, tool to search in channels with from, with and dste range, and sorting. tool to search names of channels to be used before running this search. then tool to get thread data. the tool loop should do the rest
+- evals
 - urgent unread messages
 - refactor data things like settings and tools saved in ~/.open_slack_copilot to database using common/data_layer/
 - chat with the app itself on slack, should be free agent chat, not sure what is the difference.
 
 Future
-- chat indications
+- coding - chat indications
 - In tool confirmation, add : powered by "open slack bot" with a link to github
 - CI/CD
 - ??? change M4 for watcher skills metabase.json to define who is the watcher user id. Not related to owner hcange it as wellpm
