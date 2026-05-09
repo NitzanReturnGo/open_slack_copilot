@@ -1,5 +1,3 @@
-- [TO TEST] Generic "reply as tool" + send + Oauth
-- [TO TEST] reply is not default, every tool print it's own confirmation. and notify only tools 
 - [TO TEST] oauth
 
 
