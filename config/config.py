@@ -16,8 +16,6 @@ for _key in (
     "SLACK_APP_TOKEN",
     "OPENAI_API_KEY",
     "ANTHROPIC_API_KEY",
-    "SLACK_CLIENT_ID",
-    "SLACK_CLIENT_SECRET",
 ):
     os.environ.setdefault(_key, "")
 
@@ -44,14 +42,8 @@ settings = Dynaconf(
     ],
 )
 
-# Dynaconf @format {env[...]} requires these keys to exist, so we setdefault them to "".
-# Slack Bolt's App.__init__ auto-enables OAuth (FileInstallationStore/authorize) whenever
-# SLACK_CLIENT_ID and SLACK_CLIENT_SECRET are merely *present* in os.environ (is not None),
-# which breaks single-workspace token auth with "AuthorizeResult ... was not found".
-# Drop empty OAuth vars post-parse so Bolt only enables OAuth when the user actually set them.
-for _oauth_key in ("SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET"):
-    if os.environ.get(_oauth_key, "") == "":
-        os.environ.pop(_oauth_key, None)
+settings.set("slack_bot.user_oauth.client_id", os.environ.get("SLACK_CLIENT_ID", "").strip())
+settings.set("slack_bot.user_oauth.client_secret", os.environ.get("SLACK_CLIENT_SECRET", "").strip())
 
 
 def is_debug_mode() -> bool:
