@@ -27,6 +27,45 @@ def _strip_app_mention_tokens(text: str) -> str:
     return _MENTION_TOKEN_RE.sub("", text or "").strip()
 
 
+def _thread_has_no_visible_replies(channel_id: str, parent_ts: str) -> bool:
+    """True when the parent message has no replies yet (only the root in the thread).
+
+    App mention events may omit thread metadata (e.g. ``reply_count``); we ask Slack
+    via ``conversations.replies`` so this matches the workspace.
+    """
+    try:
+        messages = slack_api.read_thread(channel_id, parent_ts)
+    except Exception:
+        return True
+    return len(messages) <= 1
+
+
+_DUMMY_FIRST_NON_ROOT_THREAD_MESSAGE = "Starting thread..."
+
+
+def post_dummy_first_non_root_message_for_ephemeral_visibility_if_needed(
+    channel_id: str,
+    parent_ts: str,
+    context_kind: str,
+) -> None:
+    """For channel-root copilot context only: post a minimal bot reply if needed so thread ephemerals show.
+
+    Slack hides thread-scoped ephemerals until the thread exists in the UI, which
+    requires at least one non-root message. No-op for ``thread`` context or when
+    replies already exist.
+    """
+    if context_kind != "channel_tail":
+        return
+    if not _thread_has_no_visible_replies(channel_id, parent_ts):
+        return
+    try:
+        slack_api.post_thread_message_as_app(
+            channel_id, parent_ts, _DUMMY_FIRST_NON_ROOT_THREAD_MESSAGE,
+        )
+    except Exception:
+        pass
+
+
 def register_copilot_command(app: App, handler):
 
     @app.command("/copilot")
@@ -275,6 +314,9 @@ def register_copilot_app_mention(app: App, handler, bot_user_id: str | None = No
             return
 
         context_kind = "channel_tail" if not event.get("thread_ts") else "thread"
+        post_dummy_first_non_root_message_for_ephemeral_visibility_if_needed(
+            channel_id, anchor_ts, context_kind,
+        )
         handler(
             channel_id=channel_id,
             thread_ts=anchor_ts,

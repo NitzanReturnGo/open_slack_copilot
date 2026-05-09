@@ -317,6 +317,7 @@ class TestRegisterCopilotAppMention:
         handler = MagicMock()
         msgs = [{"text": "older"}, {"text": "newer"}]
         mock_resolve.return_value = ("111.222", msgs)
+        mock_slack_api.read_thread.return_value = [{"ts": "111.222"}]
 
         register_copilot_app_mention(app, handler, bot_user_id="UBOT")
         registered_fn = _get_registered_app_mention_handler(app)
@@ -331,6 +332,10 @@ class TestRegisterCopilotAppMention:
         registered_fn(event=event)
 
         mock_resolve.assert_called_once_with("C9", {"ts": "111.222"})
+        mock_slack_api.read_thread.assert_called_once_with("C9", "111.222")
+        mock_slack_api.post_thread_message_as_app.assert_called_once_with(
+            "C9", "111.222", "Starting thread...",
+        )
         handler.assert_called_once_with(
             channel_id="C9",
             thread_ts="111.222",
@@ -342,6 +347,61 @@ class TestRegisterCopilotAppMention:
             copilot_trigger="app_mention",
             copilot_action="send_thread_reply_on_behalf_of_requester",
         )
+
+    @patch("common.slack.slack_bot.slack_listener_with_threads.resolve_copilot_slack_context")
+    @patch("common.slack.slack_bot.slack_listener_with_threads.slack_api")
+    def test_mention_root_skips_dummy_opener_when_thread_has_visible_replies(
+        self, mock_slack_api, mock_resolve,
+    ):
+        app = MagicMock()
+        handler = MagicMock()
+        mock_resolve.return_value = ("111.222", [])
+        mock_slack_api.read_thread.return_value = [
+            {"ts": "111.222"},
+            {"ts": "111.223"},
+        ]
+
+        register_copilot_app_mention(app, handler, bot_user_id="UBOT")
+        registered_fn = _get_registered_app_mention_handler(app)
+
+        registered_fn(event={
+            "type": "app_mention",
+            "channel": "C9",
+            "user": "UHUMAN",
+            "text": "<@UBOT> hi",
+            "ts": "111.222",
+        })
+
+        mock_slack_api.read_thread.assert_called_once_with("C9", "111.222")
+        mock_slack_api.post_thread_message_as_app.assert_not_called()
+        handler.assert_called_once()
+
+    @patch("common.slack.slack_bot.slack_listener_with_threads.resolve_copilot_slack_context")
+    @patch("common.slack.slack_bot.slack_listener_with_threads.slack_api")
+    def test_mention_root_posts_dummy_when_read_thread_fails(
+        self, mock_slack_api, mock_resolve,
+    ):
+        app = MagicMock()
+        handler = MagicMock()
+        mock_resolve.return_value = ("111.222", [])
+        mock_slack_api.read_thread.side_effect = RuntimeError("api down")
+
+        register_copilot_app_mention(app, handler, bot_user_id="UBOT")
+        registered_fn = _get_registered_app_mention_handler(app)
+
+        registered_fn(event={
+            "type": "app_mention",
+            "channel": "C9",
+            "user": "UHUMAN",
+            "text": "<@UBOT> hi",
+            "ts": "111.222",
+        })
+
+        mock_slack_api.read_thread.assert_called_once_with("C9", "111.222")
+        mock_slack_api.post_thread_message_as_app.assert_called_once_with(
+            "C9", "111.222", "Starting thread...",
+        )
+        handler.assert_called_once()
 
     @patch("common.slack.slack_bot.slack_listener_with_threads.resolve_copilot_slack_context")
     @patch("common.slack.slack_bot.slack_listener_with_threads.slack_api")
