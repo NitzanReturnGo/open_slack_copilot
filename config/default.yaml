@@ -43,6 +43,12 @@ llm:
   max_tool_rounds: 24
   max_tool_result_preview: 600
 
+# App trace (@log) uses DEBUG; runtime shows it when ``logging.level`` is DEBUG.
+# Under pytest, ``logging.test_level`` (default INFO) is the floor — DEBUG app trace is hidden.
+logging:
+  level: DEBUG
+  test_level: INFO
+
 log_sanitize:
   max_str: 500
   max_list: 8

@@ -5,3 +5,7 @@ import os
 os.environ.setdefault("SLACK_BOT_TOKEN", "xoxb-test-token")
 os.environ.setdefault("SLACK_APP_TOKEN", "xapp-test-token")
 os.environ.setdefault("OPENAI_API_KEY", "sk-test-key")
+
+from common.log import configure_app_logging
+
+configure_app_logging(test_mode=True)

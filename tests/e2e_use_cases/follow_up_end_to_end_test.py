@@ -4,6 +4,7 @@ APScheduler is bypassed by patching ``register_job_from_disk`` to call ``run_sch
 immediately (production DEBUG mode uses a 5s DateTrigger instead).
 
 Run with step logs: ``pytest tests/e2e_use_cases/follow_up_end_to_end_test.py -v -s``
+(App ``@log`` trace is DEBUG and hidden in tests; step lines use INFO on ``open_slack_copilot.test.e2e``.)
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ import pytest
 
 import common.tools.schedule_tool as schedule_tool_module
 import common.tools.send_thread_reply_as_app  # noqa: F401 — registers tool
+from common.log import get_test_logger
 from common.llm.llm_apis.types import ChatCompletionTurn, NormalizedToolCall
 from common.slack.slack_bot import tool_confirmation as tc
 from common.tools.prompt_scheduler import prompt_scheduler as sched_mod
@@ -34,46 +36,46 @@ TS_ROOT = "1779443464.746199"
 TS_MENTION = "1779443475.352209"
 
 ROOT_TEXT = (
-    f"<@{U_USER2}> please test your open tasks in the next hour. "
-    "mark :white_check_mark: when done"
+    f"<@{U_USER2}> please confirm the cupcake order spreadsheet by 3pm. "
+    "React with :cupcake: when the rows look correct."
 )
 
 SCHEDULE_PROMPT_BODY = (
-    f"Follow-up: Please ensure tasks in #{C_TEST}, thread "
-    f"https://slack.com/archives/{C_TEST}/p1779443464746199 are completed. "
-    f"Users: <@{U_USER2}>. Done when: :white_check_mark: reaction is added by the user "
-    "on the original message.\n"
-    f"1. From thread context, see if <@{U_USER2}> has added the :white_check_mark: reaction.\n"
-    "2. If not, collect the user still missing the :white_check_mark: and call "
-    "`send_thread_reply_as_app` ONCE with a reminder mentioning them. "
+    f"Follow-up: In #{C_TEST}, thread "
+    f"https://slack.com/archives/{C_TEST}/p1779443464746199, verify the bakery order. "
+    f"Watcher: <@{U_USER2}>. Done when: :cupcake: reaction is on the root message.\n"
+    f"1. Check whether <@{U_USER2}> added the :cupcake: reaction.\n"
+    "2. If not, call `send_thread_reply_as_app` ONCE with a friendly nudge. "
     "Do not loop per user."
 )
 
 REMINDER_MESSAGE = (
-    f"Reminder: <@{U_USER2}>, please complete your open tasks and mark them with a "
-    ":white_check_mark: when done. Thank you!"
+    f"Friendly nudge: <@{U_USER2}>, please double-check the cupcake order sheet "
+    "and add a :cupcake: reaction when it looks good. Thanks!"
 )
 
 FINAL_TEXT_APP_MENTION = (
-    f"I've scheduled an hourly follow-up to check if <@{U_USER2}> has added a "
-    "\u2705 reaction to the task. The reminders will stop after 1 day."
+    f"I scheduled an hourly check for <@{U_USER2}> to add a :cupcake: on the order thread. "
+    "Reminders stop after 1 day."
 )
 
 FINAL_TEXT_SCHEDULED = (
-    f"I've scheduled a reminder for <@{U_USER2}> to complete their tasks and mark them with a "
-    ":white_check_mark:. They'll receive a gentle nudge to ensure everything is on track."
+    f"The scheduled run queued a thread reminder for <@{U_USER2}> to confirm the cupcake "
+    "order spreadsheet and add a :cupcake: reaction when the rows look correct."
 )
 
 MAX_SYSTEM_PROMPT_CHARS = 8000
 MAX_USER_PROMPT_CHARS = 2000
 
+_e2e_log = get_test_logger("e2e")
+
 
 def _log(msg: str) -> None:
-    print(f"[e2e] {msg}")
+    _e2e_log.info("[e2e] %s", msg)
 
 
 def _log_ok(label: str) -> None:
-    print(f"[e2e] ok: {label}")
+    _e2e_log.info("[e2e] ok: %s", label)
 
 
 class FakeCompletionBackend:
@@ -229,7 +231,7 @@ def build_follow_up_e2e_context(
 
     fake_backend = FakeCompletionBackend(_scripted_llm_turns())
     mock_generate = MagicMock(
-        return_value="Scheduled hourly follow-up prompt for task reaction check.",
+        return_value="Scheduled hourly cupcake-order follow-up.",
     )
 
     def sync_register(job_id: str) -> None:
@@ -333,8 +335,8 @@ def assert_copilot_run_summarized_via_generate_twice(ctx: FollowUpE2EContext) ->
 def assert_draft_prompt_includes_task_and_follow_up(ctx: FollowUpE2EContext) -> None:
     first_system = ctx.fake_backend.complete_calls[0][0]["content"]
     assert ROOT_TEXT in first_system, "system prompt includes root task text"
-    assert "follow up" in first_system.lower(), "system prompt includes follow up instruction"
-    _log_ok("prompt has task + follow up")
+    assert "cupcake" in first_system.lower(), "system prompt includes follow up instruction"
+    _log_ok("prompt has order task + follow up")
 
 
 def assert_llm_prompt_char_budgets_respected(ctx: FollowUpE2EContext) -> None:
