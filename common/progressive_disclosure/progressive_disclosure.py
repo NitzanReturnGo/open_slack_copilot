@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 from common.log import log
@@ -6,6 +7,8 @@ from common.llm.llm_client import llm_client
 
 SKILLS_ROOT = Path.home() / ".open_slack_copilot" / "skills"
 _SKILL_KINDS = ("reply", "watcher")
+# Reply skill folder name: one path segment, letters, underscore, hyphen.
+_REPLY_SKILL_FOLDER_NAME_RE = re.compile(r"^[a-zA-Z_-]+\Z")
 _BUNDLED_DEFAULT_INSTRUCTION = (Path(__file__).parent / "default_reply_instruction.md").read_text().strip()
 USER_DEFAULT_INSTRUCTION_PATH = Path.home() / ".open_slack_copilot" / "skills" / "reply" / "default.md"
 
@@ -34,6 +37,40 @@ def select_skills(skill_type: str, thread_messages: list[dict], user_text: str) 
     valid_refs = [ref for ref, _ in entries]
     selected_refs = _parse_selection(response, valid_refs)
     return [text for ref, text in entries if ref in selected_refs]
+
+
+def is_safe_reply_skill_folder_name(name: str) -> bool:
+    """True when ``name`` is a single safe folder segment (``skills/reply/<name>/``)."""
+    n = (name or "").strip()
+    return bool(n) and _REPLY_SKILL_FOLDER_NAME_RE.match(n) is not None
+
+
+def load_forced_reply_skill(skill_folder: str) -> tuple[str, str] | None:
+    """Load ``reply/<skill_folder>/SKILL.md`` when present."""
+    cid = (skill_folder or "").strip()
+    if not is_safe_reply_skill_folder_name(cid):
+        return None
+    d = SKILLS_ROOT / "reply" / cid
+    if not d.is_dir() or not (d / "SKILL.md").is_file():
+        return None
+    ref = f"reply/{cid}"
+    skill_text = (d / "SKILL.md").read_text().strip()
+    return ref, skill_text
+
+
+def reply_skill_display_name(skill_folder: str, skill_text: str | None = None) -> str:
+    """Human title from SKILL.md ``# Heading`` or the folder name."""
+    text = skill_text
+    if text is None:
+        loaded = load_forced_reply_skill(skill_folder)
+        if loaded is None:
+            return (skill_folder or "").strip() or "unknown"
+        _, text = loaded
+    for line in (text or "").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            return stripped.lstrip("#").strip()
+    return (skill_folder or "").strip() or "unknown"
 
 
 def get_default_instruction() -> str:

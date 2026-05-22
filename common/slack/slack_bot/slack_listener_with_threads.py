@@ -4,8 +4,16 @@ import re
 from slack_bolt import App
 
 from common.log import log
-from common.slack.copilot_pipeline import ThreadFetchError, resolve_copilot_slack_context
 from common.slack import copilot_user_notify
+from common.slack.copilot_pipeline import (
+    MESSAGE_SHORTCUT_CALLBACK_PATTERN,
+    ThreadFetchError,
+    load_forced_reply_skill,
+    reply_skill_folder_from_slack_message_shortcut,
+    reply_skill_folder_valid_for_forced_modal,
+    resolve_copilot_slack_context,
+)
+from common.progressive_disclosure import progressive_disclosure
 from common.slack.slack_api import slack_api
 from common.slack.slack_bot import tool_confirmation
 
@@ -18,9 +26,14 @@ _MENTION_TOKEN_RE = re.compile(r"<@[^>]+>\s*")
 CALLBACK_COPILOT_SHORTCUT_DRAFT_MODAL = "copilot_shortcut_draft_modal"
 BLOCK_SHORTCUT_INSTRUCTION = "copilot_shortcut_instruction"
 ACTION_SHORTCUT_INSTRUCTION_TEXT = "copilot_shortcut_instruction_text"
-MESSAGE_SHORTCUT_DEFAULT_INSTRUCTION = (
-    "Draft reply on my behalf for this thread"
-)
+def _instruction_default_for_message_shortcut(reply_skill_folder: str) -> str:
+    """Minimal user text naming which reply skill the shortcut invoked."""
+    folder = (reply_skill_folder or "").strip()
+    loaded = load_forced_reply_skill(folder)
+    skill_text = loaded[1] if loaded else None
+    display_name = progressive_disclosure.reply_skill_display_name(folder, skill_text)
+    safe = display_name.replace('"', "'")
+    return f'user asked to trigger skill "{safe}".'
 
 
 def _strip_app_mention_tokens(text: str) -> str:
@@ -100,9 +113,10 @@ def _shortcut_draft_modal_metadata(
     thread_ts: str | None,
     user_id: str,
     channel_name: str | None,
+    reply_skill_folder: str,
 ) -> str:
     payload = {
-        "v": 1,
+        "reply_skill_folder": reply_skill_folder,
         "channel_id": channel_id,
         "message_ts": message_ts,
         "user_id": user_id,
@@ -114,12 +128,15 @@ def _shortcut_draft_modal_metadata(
     return json.dumps(payload, separators=(",", ":"))
 
 
-def _build_shortcut_draft_modal_view(private_metadata: str) -> dict:
+def _build_shortcut_draft_modal_view(
+    private_metadata: str,
+    initial_instruction: str,
+) -> dict:
     return {
         "type": "modal",
         "callback_id": CALLBACK_COPILOT_SHORTCUT_DRAFT_MODAL,
         "private_metadata": private_metadata,
-        "title": {"type": "plain_text", "text": "Draft with CoPilot", "emoji": True},
+        "title": {"type": "plain_text", "text": "CoPilot", "emoji": True},
         "submit": {"type": "plain_text", "text": "Submit", "emoji": True},
         "close": {"type": "plain_text", "text": "Cancel", "emoji": True},
         "blocks": [
@@ -151,7 +168,7 @@ def _build_shortcut_draft_modal_view(private_metadata: str) -> dict:
                     "type": "plain_text_input",
                     "action_id": ACTION_SHORTCUT_INSTRUCTION_TEXT,
                     "multiline": True,
-                    "initial_value": MESSAGE_SHORTCUT_DEFAULT_INSTRUCTION,
+                    "initial_value": initial_instruction,
                     "placeholder": {
                         "type": "plain_text",
                         "text": "e.g. Shorter, bullets, polite no, add a deadline\u2026",
@@ -169,10 +186,15 @@ def _build_shortcut_draft_modal_view(private_metadata: str) -> dict:
 
 def register_copilot_shortcut(app: App, handler):
 
-    @app.shortcut("draft_with_copilot")
     @log
-    def handle_draft_shortcut(ack, shortcut, client):
+    def handle_copilot_message_shortcut(ack, shortcut, client):
         ack()
+        shortcut_callback_id = str(shortcut.get("callback_id") or "").strip()
+        reply_skill_folder = reply_skill_folder_from_slack_message_shortcut(
+            shortcut_callback_id,
+        )
+        if reply_skill_folder is None:
+            return
         channel_id = shortcut["channel"]["id"]
         user_id = shortcut["user"]["id"]
         message = shortcut["message"]
@@ -191,8 +213,12 @@ def register_copilot_shortcut(app: App, handler):
             message.get("thread_ts"),
             user_id,
             shortcut["channel"].get("name"),
+            reply_skill_folder,
         )
-        view = _build_shortcut_draft_modal_view(meta)
+        initial_instruction = _instruction_default_for_message_shortcut(
+            reply_skill_folder,
+        )
+        view = _build_shortcut_draft_modal_view(meta, initial_instruction)
         try:
             client.views_open(trigger_id=shortcut["trigger_id"], view=view)
         except Exception:
@@ -204,6 +230,10 @@ def register_copilot_shortcut(app: App, handler):
                     )
                 except Exception:
                     pass
+
+    app.shortcut(MESSAGE_SHORTCUT_CALLBACK_PATTERN)(
+        handle_copilot_message_shortcut,
+    )
 
     @app.view(CALLBACK_COPILOT_SHORTCUT_DRAFT_MODAL)
     @log
@@ -220,7 +250,8 @@ def register_copilot_shortcut(app: App, handler):
                 },
             )
             return
-        if meta.get("v") != 1:
+        reply_skill_folder = str(meta.get("reply_skill_folder") or "").strip()
+        if not reply_skill_folder_valid_for_forced_modal(reply_skill_folder):
             ack(
                 response_action="errors",
                 errors={
@@ -248,7 +279,9 @@ def register_copilot_shortcut(app: App, handler):
         el = block.get(ACTION_SHORTCUT_INSTRUCTION_TEXT) or {}
         instruction = (el.get("value") or "").strip()
         if not instruction:
-            instruction = MESSAGE_SHORTCUT_DEFAULT_INSTRUCTION
+            instruction = _instruction_default_for_message_shortcut(
+                reply_skill_folder,
+            )
         try:
             anchor_ts, thread_messages = resolve_copilot_slack_context(
                 channel_id, message,
@@ -282,6 +315,7 @@ def register_copilot_shortcut(app: App, handler):
             context_kind=context_kind,
             copilot_trigger="message_shortcut",
             copilot_action="send_thread_reply_on_behalf_of_requester",
+            forced_reply_skill_folder=reply_skill_folder,
         )
 
 

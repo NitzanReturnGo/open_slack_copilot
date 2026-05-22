@@ -108,6 +108,47 @@ def resolve_copilot_slack_context(
     return thread_ts, fetch_thread_messages(channel_id, thread_ts)
 
 
+# Slack message shortcuts: ``callback_id`` is ``slack_copilot_<reply_skill_folder>`` (see README).
+MESSAGE_SHORTCUT_CALLBACK_PREFIX = "slack_copilot_"
+MESSAGE_SHORTCUT_CALLBACK_PATTERN = re.compile(
+    r"^slack_copilot_[a-zA-Z_-]+\Z",
+)
+
+
+class ForcedReplySkillMissing(Exception):
+    """Forced reply skill folder has no ``SKILL.md`` (or was removed after the modal opened)."""
+
+
+def load_forced_reply_skill(skill_folder: str) -> tuple[str, str] | None:
+    """Load ``reply/<skill_folder>/SKILL.md`` (same rules as progressive disclosure)."""
+    return progressive_disclosure.load_forced_reply_skill(skill_folder)
+
+
+def _reply_skill_folder_installed(folder: str) -> bool:
+    """True when ``reply/<folder>/SKILL.md`` exists (no file read)."""
+    f = (folder or "").strip()
+    if not progressive_disclosure.is_safe_reply_skill_folder_name(f):
+        return False
+    d = progressive_disclosure.SKILLS_ROOT / "reply" / f
+    return d.is_dir() and (d / "SKILL.md").is_file()
+
+
+def reply_skill_folder_from_slack_message_shortcut(callback_id: str) -> str | None:
+    """Resolve ``reply/<folder>/`` folder name from a message shortcut ``callback_id``, or None."""
+    cid = (callback_id or "").strip()
+    if not MESSAGE_SHORTCUT_CALLBACK_PATTERN.match(cid):
+        return None
+    suffix = cid.removeprefix(MESSAGE_SHORTCUT_CALLBACK_PREFIX)
+    if not _reply_skill_folder_installed(suffix):
+        return None
+    return suffix
+
+
+def reply_skill_folder_valid_for_forced_modal(folder: str) -> bool:
+    """True when ``folder`` is safe and ``reply/<folder>/SKILL.md`` exists (modal submit guard)."""
+    return _reply_skill_folder_installed(folder)
+
+
 def run_react_loop(
     channel_id: str,
     thread_ts: str,
@@ -124,11 +165,19 @@ def run_react_loop(
     context_kind: str = "thread",
     skill_id: str | None = None,
     action_ts: str | None = None,
+    forced_reply_skill_folder: str | None = None,
     on_agent_event: AgentEventNotifier | None = None,
 ) -> ReactLoopResult:
     if thread_messages is None:
         thread_messages = fetch_thread_messages(channel_id, thread_ts)
-    skills = select_skills(thread_messages, user_text)
+    if forced_reply_skill_folder is not None:
+        selected = load_forced_reply_skill(forced_reply_skill_folder)
+        if selected is None:
+            raise ForcedReplySkillMissing
+        skill_id, forced_text = selected
+        skills = [forced_text]
+    else:
+        skills = select_skills(thread_messages, user_text)
     thread_text = _thread_messages_text(thread_messages)
     rag_results = fetch_rag_context(channel_id, thread_ts, user_id, thread_messages)
     cross_rag_results = fetch_cross_channel_rag(
