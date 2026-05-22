@@ -22,6 +22,7 @@ import common.tools.schedule_tool as schedule_tool_module
 import common.tools.send_thread_reply_as_app  # noqa: F401 — registers tool
 from common.log import get_test_logger
 from common.llm.llm_apis.types import ChatCompletionTurn, NormalizedToolCall
+from tests.e2e_use_cases.llm_fake_backend import FakeCompletionBackend, assert_llm_input_token_budget
 from common.slack.slack_bot import tool_confirmation as tc
 from common.tools.prompt_scheduler import prompt_scheduler as sched_mod
 
@@ -64,9 +65,6 @@ FINAL_TEXT_SCHEDULED = (
     "order spreadsheet and add a :cupcake: reaction when the rows look correct."
 )
 
-MAX_SYSTEM_PROMPT_CHARS = 8000
-MAX_USER_PROMPT_CHARS = 2000
-
 _e2e_log = get_test_logger("e2e")
 
 
@@ -76,24 +74,6 @@ def _log(msg: str) -> None:
 
 def _log_ok(label: str) -> None:
     _e2e_log.info("[e2e] ok: %s", label)
-
-
-class FakeCompletionBackend:
-    def __init__(self, turns: list[ChatCompletionTurn]):
-        self._turns = list(turns)
-        self.complete_calls: list[list[dict]] = []
-
-    def complete(
-        self,
-        messages: list[dict],
-        *,
-        tools: list[dict] | None = None,
-        tool_choice: str = "auto",
-    ) -> ChatCompletionTurn:
-        self.complete_calls.append(list(messages))
-        if not self._turns:
-            raise AssertionError("FakeCompletionBackend: no scripted turns left")
-        return self._turns.pop(0)
 
 
 @dataclass
@@ -339,20 +319,6 @@ def assert_draft_prompt_includes_task_and_follow_up(ctx: FollowUpE2EContext) -> 
     _log_ok("prompt has order task + follow up")
 
 
-def assert_llm_prompt_char_budgets_respected(ctx: FollowUpE2EContext) -> None:
-    for messages in ctx.fake_backend.complete_calls:
-        sys_msg = next(m for m in messages if m.get("role") == "system")
-        assert len(sys_msg.get("content", "")) < MAX_SYSTEM_PROMPT_CHARS, (
-            "system prompt under max chars"
-        )
-        for m in messages:
-            if m.get("role") == "user":
-                assert len(m.get("content", "")) < MAX_USER_PROMPT_CHARS, (
-                    "user prompt under max chars"
-                )
-    _log_ok("prompt size limits")
-
-
 def assert_schedule_prompt_job_written_to_disk(ctx: FollowUpE2EContext) -> None:
     job_dirs = [p for p in ctx.scheduled_root.iterdir() if p.is_dir()]
     assert len(job_dirs) == 1, "one scheduled job directory"
@@ -407,7 +373,9 @@ class TestFollowUpEndToEnd:
             assert_scripted_llm_turns_fully_consumed(ctx)
             assert_copilot_run_summarized_via_generate_twice(ctx)
             assert_draft_prompt_includes_task_and_follow_up(ctx)
-            assert_llm_prompt_char_budgets_respected(ctx)
+            assert_llm_input_token_budget(
+                ctx.fake_backend, log_ok=_log_ok, log_info=_log,
+            )
             assert_schedule_prompt_job_written_to_disk(ctx)
             confirm_value = assert_reminder_confirm_ui_shown_once(ctx)
             assert_thread_not_posted_before_user_confirms(ctx)

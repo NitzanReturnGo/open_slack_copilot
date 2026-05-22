@@ -19,6 +19,7 @@ import pytest
 
 from common.log import get_test_logger
 from common.llm.llm_apis.types import ChatCompletionTurn, NormalizedToolCall
+from tests.e2e_use_cases.llm_fake_backend import FakeCompletionBackend, assert_llm_input_token_budget
 from common.slack.slack_bot import tool_confirmation as tc
 
 import common.tools.send_thread_reply_on_behalf_of_requester  # noqa: F401 — registers tool
@@ -81,9 +82,6 @@ FINAL_TEXT_REVISE = (
 
 REVISE_INSTRUCTION = "Tighten it — one line per bucket, no sub-bullets."
 
-MAX_SYSTEM_PROMPT_CHARS = 8000
-MAX_USER_PROMPT_CHARS = 2000
-
 _e2e_log = get_test_logger("e2e")
 
 
@@ -93,24 +91,6 @@ def _log(msg: str) -> None:
 
 def _log_ok(label: str) -> None:
     _e2e_log.info("[e2e] ok: %s", label)
-
-
-class FakeCompletionBackend:
-    def __init__(self, turns: list[ChatCompletionTurn]):
-        self._turns = list(turns)
-        self.complete_calls: list[list[dict]] = []
-
-    def complete(
-        self,
-        messages: list[dict],
-        *,
-        tools: list[dict] | None = None,
-        tool_choice: str = "auto",
-    ) -> ChatCompletionTurn:
-        self.complete_calls.append(list(messages))
-        if not self._turns:
-            raise AssertionError("FakeCompletionBackend: no scripted turns left")
-        return self._turns.pop(0)
 
 
 @dataclass
@@ -368,20 +348,6 @@ def assert_draft_prompt_includes_thread_and_summarize(ctx: SummarizeReviseE2ECon
     _log_ok("prompt has thread + summarize")
 
 
-def assert_llm_prompt_char_budgets_respected(ctx: SummarizeReviseE2EContext) -> None:
-    for messages in ctx.fake_backend.complete_calls:
-        sys_msg = next(m for m in messages if m.get("role") == "system")
-        assert len(sys_msg.get("content", "")) < MAX_SYSTEM_PROMPT_CHARS, (
-            "system prompt under max chars"
-        )
-        for m in messages:
-            if m.get("role") == "user":
-                assert len(m.get("content", "")) < MAX_USER_PROMPT_CHARS, (
-                    "user prompt under max chars"
-                )
-    _log_ok("prompt size limits")
-
-
 def assert_first_confirm_ui_shows_long_summary(ctx: SummarizeReviseE2EContext) -> str:
     assert ctx.mock_slack.send_ephemeral_blocks.call_count >= 1, "confirm UI shown"
     blocks = ctx.mock_slack.send_ephemeral_blocks.call_args_list[0][0][4]
@@ -445,5 +411,7 @@ class TestSummarizeReviseEndToEnd:
             assert_scripted_llm_turns_fully_consumed(ctx)
             assert_copilot_run_summarized_via_generate_twice(ctx)
             assert_draft_prompt_includes_thread_and_summarize(ctx)
-            assert_llm_prompt_char_budgets_respected(ctx)
+            assert_llm_input_token_budget(
+                ctx.fake_backend, log_ok=_log_ok, log_info=_log,
+            )
             assert_user_confirm_posts_revised_summary_on_behalf(ctx, confirm_value)
