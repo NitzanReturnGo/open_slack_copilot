@@ -16,6 +16,7 @@ from common.slack.slack_api import slack_api
 from common.slack.slack_rag import slack_rag
 from common.slack.thread_format import format_slack_thread_for_prompt
 from common.tools.react_context import react_invocation_context
+from common.tools.append_csv_row import APPEND_CSV_ROW_TOOL
 from common.tools.copilot_tool import dispatch_copilot_tool as dispatch_registered_copilot_tool
 from common.tools.list_usergroup_members import LIST_USERGROUP_MEMBERS_TOOL
 from common.tools.schedule_tool import SCHEDULE_PROMPT_TOOL
@@ -39,6 +40,7 @@ _INTERACTIVE_TOOLS = [
     SEND_THREAD_REPLY_AS_APP_TOOL,
     SEND_EPHEMERAL_MESSAGE_TOOL,
     LIST_USERGROUP_MEMBERS_TOOL,
+    APPEND_CSV_ROW_TOOL,
 ]
 
 
@@ -118,6 +120,8 @@ def run_react_loop(
     copilot_action: str | None = None,
     *,
     context_kind: str = "thread",
+    skill_id: str | None = None,
+    action_ts: str | None = None,
     on_agent_event: AgentEventNotifier | None = None,
 ) -> ReactLoopResult:
     if thread_messages is None:
@@ -165,8 +169,14 @@ def run_react_loop(
     )
     if bot_uid:
         tool_extra += f" Never mention `<@{bot_uid}>` in tool messages — that id is this app."
+    effective_action_ts = (action_ts or "").strip() or datetime.now(timezone.utc).isoformat()
     with react_invocation_context(
-        channel_id, thread_ts, user_id, context_kind=context_kind,
+        channel_id,
+        thread_ts,
+        user_id,
+        context_kind=context_kind,
+        skill_id=skill_id,
+        action_ts=effective_action_ts,
     ):
         loop_result = llm_client.agent_tool_loop(
             prompt,
