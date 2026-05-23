@@ -133,15 +133,17 @@ def _reply_skill_folder_installed(folder: str) -> bool:
     return d.is_dir() and (d / "SKILL.md").is_file()
 
 
-def reply_skill_folder_from_slack_message_shortcut(callback_id: str) -> str | None:
-    """Resolve ``reply/<folder>/`` folder name from a message shortcut ``callback_id``, or None."""
+def parse_copilot_shortcut_callback_id(callback_id: str) -> str | None:
+    """Suffix of a ``slack_copilot_<folder>`` callback_id, or None when not a copilot shortcut.
+
+    Does NOT check whether the named reply skill is installed on disk; callers use
+    :func:`reply_skill_folder_valid_for_forced_modal` to distinguish "missing SKILL.md"
+    from "not a copilot shortcut" and surface the right error to the user.
+    """
     cid = (callback_id or "").strip()
     if not MESSAGE_SHORTCUT_CALLBACK_PATTERN.match(cid):
         return None
-    suffix = cid.removeprefix(MESSAGE_SHORTCUT_CALLBACK_PREFIX)
-    if not _reply_skill_folder_installed(suffix):
-        return None
-    return suffix
+    return cid.removeprefix(MESSAGE_SHORTCUT_CALLBACK_PREFIX)
 
 
 def reply_skill_folder_valid_for_forced_modal(folder: str) -> bool:

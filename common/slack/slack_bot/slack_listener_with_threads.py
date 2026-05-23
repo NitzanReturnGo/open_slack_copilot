@@ -9,10 +9,11 @@ from common.slack.copilot_pipeline import (
     MESSAGE_SHORTCUT_CALLBACK_PATTERN,
     ThreadFetchError,
     load_forced_reply_skill,
-    reply_skill_folder_from_slack_message_shortcut,
+    parse_copilot_shortcut_callback_id,
     reply_skill_folder_valid_for_forced_modal,
     resolve_copilot_slack_context,
 )
+from common.progressive_disclosure.progressive_disclosure import SKILLS_ROOT
 from common.progressive_disclosure import progressive_disclosure
 from common.slack.slack_api import slack_api
 from common.slack.slack_bot import tool_confirmation
@@ -190,7 +191,7 @@ def register_copilot_shortcut(app: App, handler):
     def handle_copilot_message_shortcut(ack, shortcut, client):
         ack()
         shortcut_callback_id = str(shortcut.get("callback_id") or "").strip()
-        reply_skill_folder = reply_skill_folder_from_slack_message_shortcut(
+        reply_skill_folder = parse_copilot_shortcut_callback_id(
             shortcut_callback_id,
         )
         if reply_skill_folder is None:
@@ -200,6 +201,13 @@ def register_copilot_shortcut(app: App, handler):
         message = shortcut["message"]
         response_url = shortcut.get("response_url")
         anchor_fallback = message.get("thread_ts") or message["ts"]
+
+        if not reply_skill_folder_valid_for_forced_modal(reply_skill_folder):
+            _send_missing_skill_error(
+                channel_id, anchor_fallback, user_id, response_url,
+                reply_skill_folder,
+            )
+            return
 
         try:
             resolve_copilot_slack_context(channel_id, message)
@@ -371,6 +379,31 @@ def _extract_thread_ts(command: dict) -> str | None:
 def _send_channel_error(channel_id: str, thread_ts: str, user_id: str,
                        response_url: str | None):
     msg = "Add me to this channel first. /invite @CoPilot"
+    try:
+        copilot_user_notify.notify_error(channel_id, thread_ts, user_id, msg)
+        return
+    except Exception:
+        pass
+    if response_url:
+        try:
+            slack_api.respond_ephemeral(response_url, msg)
+        except Exception:
+            pass
+
+
+def _send_missing_skill_error(
+    channel_id: str,
+    thread_ts: str,
+    user_id: str,
+    response_url: str | None,
+    reply_skill_folder: str,
+) -> None:
+    expected_path = SKILLS_ROOT / "reply" / reply_skill_folder / "SKILL.md"
+    msg = (
+        f"Skill not installed: `reply/{reply_skill_folder}`.\n"
+        f"Expected `{expected_path}`. "
+        "Add the SKILL.md or run `./install_skill_examples.sh`, then retry."
+    )
     try:
         copilot_user_notify.notify_error(channel_id, thread_ts, user_id, msg)
         return
