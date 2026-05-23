@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from qdrant_client import QdrantClient
+from slack_sdk.errors import SlackApiError
 
 from common.rag import rag
 from common.slack.slack_directory_rag import slack_directory_rag
@@ -93,6 +94,21 @@ class TestBuildAndSearch:
         slack_directory_rag.build()
         assert slack_directory_rag.is_ready()
         assert client.usergroups_list.call_count >= 2
+
+
+class TestBuildIfMissing:
+    @patch("common.slack.slack_directory_rag.slack_directory_rag.slack_api.get_client")
+    def test_missing_scope_skips_build(self, mock_get_client, capsys):
+        client = MagicMock()
+        client.users_list.side_effect = SlackApiError(
+            message="missing_scope",
+            response={"ok": False, "error": "missing_scope", "needed": "users:read"},
+        )
+        mock_get_client.return_value = client
+
+        assert slack_directory_rag.build_if_missing() is False
+        assert not slack_directory_rag.is_ready()
+        assert "users:read" in capsys.readouterr().out
 
 
 class TestScheduler:

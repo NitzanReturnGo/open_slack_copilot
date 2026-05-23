@@ -98,8 +98,8 @@ def _parse_update_interval(update_str: str) -> float | None:
 
 def _start_directory_rag():
     """Index workspace users + user groups for ``list_users`` / semantic lookup."""
-    slack_directory_rag.build_if_missing()
-    slack_directory_rag.schedule_daily_refresh()
+    if slack_directory_rag.build_if_missing():
+        slack_directory_rag.schedule_daily_refresh()
 
 
 if __name__ == "__main__":

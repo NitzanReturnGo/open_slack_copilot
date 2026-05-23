@@ -13,7 +13,20 @@ LIMIT ?= 20
 # Local Qdrant folder (default matches config/default.yaml rag.storage_path)
 RAG_STORAGE ?= .rag_storage
 
-.venv:
+MIN_PYTHON_MINOR := 10
+
+check-python:
+	@$(PYTHON) -c "import sys; v=sys.version_info; \
+		(v.major, v.minor) >= (3, $(MIN_PYTHON_MINOR)) or \
+		(print('Error: Python 3.$(MIN_PYTHON_MINOR)+ required, got {}.{}.{}\n'.format(v.major, v.minor, v.micro) + \
+		'Step 1 - Install a modern Python (3.$(MIN_PYTHON_MINOR)+):\n' + \
+		'  brew install python3\n' + \
+		'  — or —\n' + \
+		'  brew install pyenv && pyenv install --latest && pyenv local <version>\n\n' + \
+		'Step 2 - Re-run make, pointing to the new interpreter:\n' + \
+		'  PYTHON=$(which python3) make install') or exit(1))"
+
+.venv: check-python
 	$(PYTHON) -m venv .venv
 
 # Re-run pip only when requirements.txt changes (keeps repeat `make test` fast).

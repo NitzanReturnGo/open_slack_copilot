@@ -125,7 +125,8 @@ Paste this when creating the app from a manifest:
                 "commands",
                 "channels:history",
                 "groups:history",
-                "usergroups:read"
+                "usergroups:read",
+                "users:read"
             ],
             "user": [
                 "chat:write"
@@ -150,7 +151,7 @@ Paste this when creating the app from a manifest:
 }
 ```
 
-Message shortcuts must use `callback_id` **`slack_copilot_`** + the reply skill folder name (same name as under `~/.open_slack_copilot/skills/reply/`, only `a-z`, `A-Z`, `_`, `-`). The app registers one Bolt listener for that pattern; shortcuts without the prefix or without a matching `SKILL.md` are ignored silently.
+Message shortcuts must use `callback_id` **`slack_copilot_`** + the reply skill folder name (same name as under `~/.open_slack_copilot/skills/reply/`, only `a-z`, `A-Z`, `_`, `-`). The app registers one Bolt listener for that pattern; shortcuts without the prefix or without a matching `SKILL.md` are ignored silently. See [Add a skill as a message shortcut](#add-a-skill-as-message-shortcut).
 
 ### 2. Get Your Credentials
 
@@ -159,6 +160,7 @@ After creating and installing the app, collect three tokens:
 | Variable | Where to find it                                                                 | Format |
 |---|----------------------------------------------------------------------------------|---|
 | `SLACK_BOT_TOKEN` | **OAuth & Permissions** → Bot User OAuth Token          | `xoxb-...` |
+| `SLACK_USER_TOKEN` | **OAuth & Permissions** → User OAuth Token          | `xoxp-...` |
 | `SLACK_APP_TOKEN` | **Basic Information** → App-Level Tokens → Generate (scope: `connections:write`) | `xapp-...` |
 | `OPENAI_API_KEY` | [platform.openai.com/api-keys](https://platform.openai.com/api-keys)             | `sk-...` |
 
@@ -244,9 +246,15 @@ Skills are freeform markdown instructions that guide the bot's reply behavior. T
 ```
 
 - **Default skill** — To override the built-in default reply instruction, create `~/.open_slack_copilot/skills/reply/default.md` with your own markdown. When no skill matches a thread, this file is used instead of the [bundled default](common/progressive_disclosure/default_reply_instruction.md).
-- **Additional skills** — Add folders under `~/.open_slack_copilot/skills/reply/`. Each folder contains a `SKILL.md` file. The bot uses progressive disclosure to automatically select relevant skills per thread (including on **`@CoPilot`**, the message shortcut, and **`/copilot`**).
+- **Additional skills** — Add folders under `~/.open_slack_copilot/skills/reply/`. Each folder contains a `SKILL.md` file. The bot uses progressive disclosure to automatically select relevant skills per thread (including on **`@CoPilot`** and **`/copilot`**).
 
 For examples of useful skills, see [`docs/examples/`](docs/examples/) and the **Follow Up** reply skill at [`skill_examples/reply/follow_up/SKILL.md`](skill_examples/reply/follow_up/SKILL.md).
+
+### Add a skill as a message shortcut
+
+1. Create `~/.open_slack_copilot/skills/reply/<skill_folder>/SKILL.md` (see [`skill_examples/reply/follow_up/SKILL.md`](skill_examples/reply/follow_up/SKILL.md)).
+2. [api.slack.com/apps](https://api.slack.com/apps) → your app → **Features** → **Shortcuts** → **Create New Shortcut** → **On messages** → set **Callback ID** to `slack_copilot_<skill_folder>` (same `<skill_folder>` as the file path) → reinstall the app to your workspace.
+3. On a message: **⋯** → your shortcut → **Submit** in the modal.
 
 ---
 
