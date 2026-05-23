@@ -13,7 +13,8 @@ LIST_USERS_TOOL = {
             "users with their Slack user id (U…). "
             "Use this whenever you need a user id for an individual person. "
             "Do NOT pass user ids (U…) to `list_usergroup_members` — that "
-            "tool is for user groups (subteams) only."
+            "tool is for user groups (subteams) only. "
+            "Requires the Slack app to have users:read."
         ),
         "parameters": {
             "type": "object",

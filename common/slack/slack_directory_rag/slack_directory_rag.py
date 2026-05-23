@@ -8,6 +8,8 @@ Built once on startup (if missing) and refreshed on a daily schedule.
 
 import threading
 
+from slack_sdk.errors import SlackApiError
+
 from common.rag import rag
 from common.slack.slack_api import slack_api
 
@@ -23,9 +25,42 @@ def is_ready() -> bool:
     return rag.collection_exists(_COLLECTION)
 
 
-def build_if_missing() -> None:
-    if not is_ready():
+def build_if_missing() -> bool:
+    """Build the directory index when absent. Returns True if the index is ready."""
+    if is_ready():
+        return True
+    try:
         build()
+    except SlackApiError as exc:
+        if _is_missing_scope_error(exc):
+            _log_missing_scope(exc)
+            return False
+        raise
+    return is_ready()
+
+
+def _is_missing_scope_error(exc: SlackApiError) -> bool:
+    return _slack_response_field(exc, "error") == "missing_scope"
+
+
+def _slack_response_field(exc: SlackApiError, key: str) -> str | None:
+    resp = getattr(exc, "response", None)
+    if resp is None:
+        return None
+    if isinstance(resp, dict):
+        val = resp.get(key)
+    else:
+        get = getattr(resp, "get", None)
+        val = get(key) if callable(get) else None
+    return val if isinstance(val, str) and val else None
+
+
+def _log_missing_scope(exc: SlackApiError) -> None:
+    needed = _slack_response_field(exc, "needed") or "users:read"
+    print(  # noqa: T201 — startup / tool degradation
+        "[slack_directory_rag] Skipping directory index: missing bot scope "
+        f"{needed!r}. Reinstall the Slack app with updated scopes (see README)."
+    )
 
 
 def build() -> None:
