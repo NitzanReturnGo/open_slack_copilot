@@ -108,36 +108,36 @@ def resolve_copilot_slack_context(
     return thread_ts, fetch_thread_messages(channel_id, thread_ts)
 
 
-# Slack message shortcuts: ``callback_id`` is ``slack_copilot_<reply_skill_folder>`` (see README).
+# Slack message shortcuts: ``callback_id`` is ``slack_copilot_<skill_folder>`` (see README).
 MESSAGE_SHORTCUT_CALLBACK_PREFIX = "slack_copilot_"
 MESSAGE_SHORTCUT_CALLBACK_PATTERN = re.compile(
     r"^slack_copilot_[a-zA-Z_-]+\Z",
 )
 
 
-class ForcedReplySkillMissing(Exception):
-    """Forced reply skill folder has no ``SKILL.md`` (or was removed after the modal opened)."""
+class ForcedSkillMissing(Exception):
+    """Forced skill folder has no ``SKILL.md`` (or was removed after the modal opened)."""
 
 
-def load_forced_reply_skill(skill_folder: str) -> tuple[str, str] | None:
-    """Load ``reply/<skill_folder>/SKILL.md`` (same rules as progressive disclosure)."""
-    return progressive_disclosure.load_forced_reply_skill(skill_folder)
+def load_forced_skill(skill_folder: str) -> tuple[str, str] | None:
+    """Load ``<skill_folder>/SKILL.md`` (same rules as progressive disclosure)."""
+    return progressive_disclosure.load_forced_skill(skill_folder)
 
 
-def _reply_skill_folder_installed(folder: str) -> bool:
-    """True when ``reply/<folder>/SKILL.md`` exists (no file read)."""
+def _skill_folder_installed(folder: str) -> bool:
+    """True when ``<folder>/SKILL.md`` exists (no file read)."""
     f = (folder or "").strip()
-    if not progressive_disclosure.is_safe_reply_skill_folder_name(f):
+    if not progressive_disclosure.is_safe_skill_folder_name(f):
         return False
-    d = progressive_disclosure.SKILLS_ROOT / "reply" / f
+    d = progressive_disclosure.SKILLS_ROOT / f
     return d.is_dir() and (d / "SKILL.md").is_file()
 
 
 def parse_copilot_shortcut_callback_id(callback_id: str) -> str | None:
     """Suffix of a ``slack_copilot_<folder>`` callback_id, or None when not a copilot shortcut.
 
-    Does NOT check whether the named reply skill is installed on disk; callers use
-    :func:`reply_skill_folder_valid_for_forced_modal` to distinguish "missing SKILL.md"
+    Does NOT check whether the named skill is installed on disk; callers use
+    :func:`skill_folder_valid_for_forced_modal` to distinguish "missing SKILL.md"
     from "not a copilot shortcut" and surface the right error to the user.
     """
     cid = (callback_id or "").strip()
@@ -146,9 +146,9 @@ def parse_copilot_shortcut_callback_id(callback_id: str) -> str | None:
     return cid.removeprefix(MESSAGE_SHORTCUT_CALLBACK_PREFIX)
 
 
-def reply_skill_folder_valid_for_forced_modal(folder: str) -> bool:
-    """True when ``folder`` is safe and ``reply/<folder>/SKILL.md`` exists (modal submit guard)."""
-    return _reply_skill_folder_installed(folder)
+def skill_folder_valid_for_forced_modal(folder: str) -> bool:
+    """True when ``folder`` is safe and ``<folder>/SKILL.md`` exists (modal submit guard)."""
+    return _skill_folder_installed(folder)
 
 
 def run_react_loop(
@@ -167,15 +167,15 @@ def run_react_loop(
     context_kind: str = "thread",
     skill_id: str | None = None,
     action_ts: str | None = None,
-    forced_reply_skill_folder: str | None = None,
+    forced_skill_folder: str | None = None,
     on_agent_event: AgentEventNotifier | None = None,
 ) -> ReactLoopResult:
     if thread_messages is None:
         thread_messages = fetch_thread_messages(channel_id, thread_ts)
-    if forced_reply_skill_folder is not None:
-        selected = load_forced_reply_skill(forced_reply_skill_folder)
+    if forced_skill_folder is not None:
+        selected = load_forced_skill(forced_skill_folder)
         if selected is None:
-            raise ForcedReplySkillMissing
+            raise ForcedSkillMissing
         skill_id, forced_text = selected
         skills = [forced_text]
     else:
@@ -387,7 +387,7 @@ def _format_thread_for_prompt(
 # ---------------------------------------------------------------------------
 
 def select_skills(thread_messages: list[dict], user_text: str) -> list[str]:
-    skills = progressive_disclosure.select_skills("reply", thread_messages, user_text)
+    skills = progressive_disclosure.select_skills(thread_messages, user_text)
     if not skills:
         return [progressive_disclosure.get_default_instruction()]
     return skills
