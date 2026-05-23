@@ -252,9 +252,9 @@ For examples of useful skills, see [`docs/examples/`](docs/examples/) and the **
 
 ### Add a skill as a message shortcut
 
-1. Create `~/.open_slack_copilot/skills/reply/<skill_folder>/SKILL.md` (see [`skill_examples/reply/follow_up/SKILL.md`](skill_examples/reply/follow_up/SKILL.md)).
-2. [api.slack.com/apps](https://api.slack.com/apps) → your app → **Features** → **Shortcuts** → **Create New Shortcut** → **On messages** → set **Callback ID** to `slack_copilot_<skill_folder>` (same `<skill_folder>` as the file path) → reinstall the app to your workspace.
-3. On a message: **⋯** → your shortcut → **Submit** in the modal.
+1. Create `~/.open_slack_copilot/skills/reply/<skill_directory>/SKILL.md` (see [`skill_examples/reply/follow_up/SKILL.md`](skill_examples/reply/follow_up/SKILL.md)).
+2. [api.slack.com/apps](https://api.slack.com/apps) → your app → **Features** → **Shortcuts** → **Create New Shortcut** → **On messages**. **Callback ID** must match `slack_copilot_<skill_directory>` (e.g. `slack_copilot_follow_up` for `reply/follow_up/`). Reinstall the app.
+3. On a message: **⋯** → your shortcut → **Submit**.
 
 ---
 
