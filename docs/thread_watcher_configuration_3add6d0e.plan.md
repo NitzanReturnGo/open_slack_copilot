@@ -28,6 +28,9 @@ todos:
     status: pending
 isProject: false
 ---
+## Fixes needed in this plan
+- confirmation of tools tranlastes to sign of online in copilot which tirogger watchers
+- also confirnation of tools of watchers, no need to track trigger as diplayed in the diagram
 
 
 ## Layout
