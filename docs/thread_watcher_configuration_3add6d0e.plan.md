@@ -31,6 +31,7 @@ isProject: false
 ## Fixes needed in this plan
 - confirmation of tools tranlastes to sign of online in copilot which tirogger watchers
 - also confirnation of tools of watchers, no need to track trigger as diplayed in the diagram
+- the iteratir iterates in messages, the yield should execute once per thread, not for each message. the search for the first thread that matches the filter is per thread not per message
 
 
 ## Layout
