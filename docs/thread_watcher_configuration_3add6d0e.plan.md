@@ -32,6 +32,8 @@ isProject: false
 - confirmation of tools tranlastes to sign of online in copilot which tirogger watchers
 - also confirnation of tools of watchers, no need to track trigger as diplayed in the diagram
 - the iteratir iterates in messages, the yield should execute once per thread, not for each message. the search for the first thread that matches the filter is per thread not per message
+-     watchers.run_watchers_for_trigger must be asynchronic. otherwise it might delay finishing the loop really. in anycase, nit a good practice. we can define the appscheduler as imidiate with a seperate worker process in the makefile
+
 
 
 ## Layout
