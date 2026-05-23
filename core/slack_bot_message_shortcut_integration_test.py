@@ -139,6 +139,8 @@ class TestMessageShortcutEndToEnd:
         shortcut = _shortcut_payload(channel_id="C1", user_id="U1")
         shortcut_fn(ack=MagicMock(), shortcut=shortcut, client=client)
         metadata = client.views_open.call_args[1]["view"]["private_metadata"]
+        meta = json.loads(metadata)
+        assert meta.get("anchor_message_text") == "Sample message"
 
         body = {
             "view": {
@@ -161,6 +163,10 @@ class TestMessageShortcutEndToEnd:
         prompt = mock_llm.agent_tool_loop.call_args[0][0]
         for msg in THREAD_3:
             assert msg["text"] in prompt
+
+        rag_query = mock_rag.query_channel.call_args[0][1]
+        assert rag_query.count("Sample message") == 3
+        assert rag_query.count("Draft reply on my behalf for this thread") == 2
 
         mock_react_notify.notify_error.assert_not_called()
         mock_react_notify.notify_react_feedback.assert_not_called()

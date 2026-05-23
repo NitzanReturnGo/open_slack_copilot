@@ -168,6 +168,7 @@ def run_react_loop(
     skill_id: str | None = None,
     action_ts: str | None = None,
     forced_skill_folder: str | None = None,
+    anchor_message_text: str | None = None,
     on_agent_event: AgentEventNotifier | None = None,
 ) -> ReactLoopResult:
     if thread_messages is None:
@@ -180,10 +181,15 @@ def run_react_loop(
         skills = [forced_text]
     else:
         skills = select_skills(thread_messages, user_text)
-    thread_text = _thread_messages_text(thread_messages)
-    rag_results = fetch_rag_context(channel_id, thread_ts, user_id, thread_messages)
+    rag_query_text = build_rag_query_text(
+        anchor_message_text=anchor_message_text,
+        user_text=user_text,
+        thread_messages=thread_messages,
+        context_kind=context_kind,
+    )
+    rag_results = fetch_rag_context(channel_id, thread_ts, user_id, rag_query_text)
     cross_rag_results = fetch_cross_channel_rag(
-        channel_id, thread_ts, user_id, thread_text
+        channel_id, thread_ts, user_id, rag_query_text
     )
     examples = load_examples()
     agent_log_section = ""
@@ -397,8 +403,10 @@ def fetch_rag_context(
     channel_id: str,
     thread_ts: str,
     user_id: str,
-    thread_messages: list[dict],
+    rag_query_text: str,
 ) -> list[dict]:
+    if not (rag_query_text or "").strip():
+        return []
     try:
         if not slack_rag.is_ready(channel_id):
             copilot_user_notify.notify_progress(
@@ -406,7 +414,7 @@ def fetch_rag_context(
                 "Preparing RAG for this channel, will update when done.",
             )
             slack_rag.build(channel_id, get_checkpoint_seconds())
-        return slack_rag.query_channel(channel_id, _thread_messages_text(thread_messages))
+        return slack_rag.query_channel(channel_id, rag_query_text)
     except Exception:
         return []
 
@@ -415,8 +423,10 @@ def fetch_cross_channel_rag(
     channel_id: str,
     thread_ts: str,
     user_id: str,
-    thread_context: str,
+    rag_query_text: str,
 ) -> list[dict]:
+    if not (rag_query_text or "").strip():
+        return []
     cross_channels = get_cross_channel_ids()
     if not cross_channels:
         return []
@@ -432,7 +442,7 @@ def fetch_cross_channel_rag(
             for ch in missing:
                 slack_rag.build(ch, checkpoint)
         return slack_rag.query_cross_channel(
-            cross_channels, thread_context, exclude_channel=channel_id
+            cross_channels, rag_query_text, exclude_channel=channel_id
         )
     except Exception:
         return []
@@ -454,6 +464,28 @@ def get_cross_channel_ids() -> list[str]:
 
 def _thread_messages_text(thread_messages: list[dict]) -> str:
     return " ".join(m.get("text", "") for m in thread_messages)
+
+
+def build_rag_query_text(
+    *,
+    anchor_message_text: str | None,
+    user_text: str,
+    thread_messages: list[dict],
+    context_kind: str,
+) -> str:
+    """Focus-weighted RAG query: anchor (x3), instruction (x2), thread background (x1)."""
+    parts: list[str] = []
+    anchor = (anchor_message_text or "").strip()
+    instruction = (user_text or "").strip()
+    if anchor:
+        parts.extend([anchor] * 3)
+    if instruction and instruction != anchor:
+        parts.extend([instruction] * 2)
+    if context_kind == "thread":
+        background = _thread_messages_text(thread_messages).strip()
+        if background:
+            parts.append(background)
+    return " ".join(parts).strip()
 
 
 def _collapse_blank_lines(text: str) -> str:

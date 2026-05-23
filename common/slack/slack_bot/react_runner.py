@@ -198,6 +198,7 @@ def run_react_and_confirm(
     copilot_trigger: str | None = None,
     copilot_action: str | None = None,
     forced_skill_folder: str | None = None,
+    anchor_message_text: str | None = None,
 ) -> None:
     if not recipient_user_id:
         return
@@ -225,6 +226,7 @@ def run_react_and_confirm(
             copilot_action=copilot_action,
             context_kind=context_kind,
             forced_skill_folder=forced_skill_folder,
+            anchor_message_text=anchor_message_text,
             on_agent_event=on_ev,
         )
     except ForcedSkillMissing:

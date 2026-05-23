@@ -105,6 +105,7 @@ def register_copilot_command(app: App, handler):
             context_kind="thread",
             copilot_trigger="slash_command",
             copilot_action="send_thread_reply_on_behalf_of_requester",
+            anchor_message_text=user_text,
         )
 
 
@@ -115,6 +116,7 @@ def _shortcut_draft_modal_metadata(
     user_id: str,
     channel_name: str | None,
     skill_folder: str,
+    anchor_message_text: str | None = None,
 ) -> str:
     payload = {
         "skill_folder": skill_folder,
@@ -126,6 +128,9 @@ def _shortcut_draft_modal_metadata(
         payload["thread_ts"] = thread_ts
     if channel_name is not None:
         payload["channel_name"] = channel_name
+    anchor = (anchor_message_text or "").strip()
+    if anchor:
+        payload["anchor_message_text"] = anchor
     return json.dumps(payload, separators=(",", ":"))
 
 
@@ -215,6 +220,7 @@ def register_copilot_shortcut(app: App, handler):
             _send_channel_error(channel_id, anchor_fallback, user_id, response_url)
             return
 
+        anchor_text = _strip_app_mention_tokens(message.get("text", ""))
         meta = _shortcut_draft_modal_metadata(
             channel_id,
             message["ts"],
@@ -222,6 +228,7 @@ def register_copilot_shortcut(app: App, handler):
             user_id,
             shortcut["channel"].get("name"),
             skill_folder,
+            anchor_message_text=anchor_text,
         )
         initial_instruction = _instruction_default_for_message_shortcut(
             skill_folder,
@@ -312,6 +319,7 @@ def register_copilot_shortcut(app: App, handler):
         context_kind = (
             "channel_tail" if not message.get("thread_ts") else "thread"
         )
+        anchor_message_text = str(meta.get("anchor_message_text") or "").strip() or None
         ack()
         handler(
             channel_id=channel_id,
@@ -324,6 +332,7 @@ def register_copilot_shortcut(app: App, handler):
             copilot_trigger="message_shortcut",
             copilot_action="send_thread_reply_on_behalf_of_requester",
             forced_skill_folder=skill_folder,
+            anchor_message_text=anchor_message_text,
         )
 
 
@@ -369,6 +378,7 @@ def register_copilot_app_mention(app: App, handler, bot_user_id: str | None = No
             context_kind=context_kind,
             copilot_trigger="app_mention",
             copilot_action="send_thread_reply_on_behalf_of_requester",
+            anchor_message_text=user_text,
         )
 
 

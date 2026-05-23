@@ -70,6 +70,7 @@ class TestRegisterCopilotCommand:
             user_text="help me", channel_name=None, context_kind="thread",
             copilot_trigger="slash_command",
             copilot_action="send_thread_reply_on_behalf_of_requester",
+            anchor_message_text="help me",
         )
 
     @patch("common.slack.slack_bot.slack_listener_with_threads.copilot_user_notify")
@@ -339,6 +340,7 @@ class TestRegisterCopilotShortcut:
             copilot_trigger="message_shortcut",
             copilot_action="send_thread_reply_on_behalf_of_requester",
             forced_skill_folder="draft_with_copilot",
+            anchor_message_text=None,
         )
 
     @patch("common.slack.slack_bot.slack_listener_with_threads.resolve_copilot_slack_context")
@@ -442,6 +444,7 @@ class TestRegisterCopilotAppMention:
             context_kind="channel_tail",
             copilot_trigger="app_mention",
             copilot_action="send_thread_reply_on_behalf_of_requester",
+            anchor_message_text="make it brief",
         )
 
     @patch("common.slack.slack_bot.slack_listener_with_threads.resolve_copilot_slack_context")
@@ -533,6 +536,7 @@ class TestRegisterCopilotAppMention:
             context_kind="thread",
             copilot_trigger="app_mention",
             copilot_action="send_thread_reply_on_behalf_of_requester",
+            anchor_message_text="",
         )
 
     @patch("common.slack.slack_bot.slack_listener_with_threads.slack_api")
